@@ -14,8 +14,10 @@ jobs:
           lfs: true
 
       - name: Push to Hugging Face Space
-        uses: huggingface/huggingface_hub/actions/sync-to-hub@main
-        with:
-          token: ${{ secrets.HF_TOKEN }}
-          repository: dmarcllanes/akobato
-          type: space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config --global credential.helper store
+          echo "https://dmarcllanes:${HF_TOKEN}@huggingface.co" > ~/.git-credentials
+          git remote add space https://dmarcllanes:${HF_TOKEN}@huggingface.co/spaces/dmarcllanes/akobato || true
+          git push space main --force
