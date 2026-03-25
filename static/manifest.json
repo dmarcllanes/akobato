@@ -1,0 +1,17 @@
+{
+  "name": "Akobato — Real-Time Debate Game",
+  "short_name": "Akobato",
+  "description": "60 seconds. 1 hot take. Let the AI Judge decide.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#050505",
+  "theme_color": "#05D9E8",
+  "icons": [
+    { "src": "/static/img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "/static/img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/img/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ],
+  "categories": ["games", "entertainment"],
+  "screenshots": []
+}

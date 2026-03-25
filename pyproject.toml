@@ -1,0 +1,16 @@
+[project]
+name = "akobato"
+version = "0.1.0"
+description = "Real-time multiplayer debate game powered by AI"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "python-fasthtml>=0.6.0",
+  "pydantic>=2.0",
+  "supabase>=2.0",
+  "httpx>=0.27",
+  "groq>=0.9",
+  "python-dotenv>=1.0",
+  "polars>=0.20",
+  "uvicorn>=0.30",
+]

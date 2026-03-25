@@ -1,0 +1,29 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Env & secrets
+.env
+.env.*
+
+# Git
+.git/
+.gitignore
+
+# Dev/docs
+*.md
+CLAUDE.md
+FOLDER_STRUCTURE.md
+.DS_Store
+
+# uv artifacts not needed in image
+uv.lock
+
+# Leftover pip file
+requirements.txt
