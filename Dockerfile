@@ -1,30 +1,32 @@
-# ── Stage 1: Builder ──────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Stage 1 — dependency builder
+# ---------------------------------------------------------------------------
 FROM python:3.11-slim AS builder
-
-# Pull uv binary directly from official image
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Install deps first (cached layer — only re-runs when pyproject.toml/uv.lock changes)
-COPY pyproject.toml uv.lock* ./
-RUN uv sync --frozen --no-dev --no-install-project
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-# Copy source and install the project itself
-COPY . .
-RUN uv sync --frozen --no-dev
+# Install deps into an isolated venv; lock file ensures reproducibility
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-install-project --no-dev
 
-# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# Stage 2 — lean runtime image
+# ---------------------------------------------------------------------------
 FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Copy only the venv + app from builder (no uv, no build tools)
+# Grab only the pre-built venv from the builder — no uv or build tools needed
 COPY --from=builder /app/.venv /app/.venv
-COPY --from=builder /app /app
 
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONUNBUFFERED=1
+# Activate venv by prepending its bin to PATH
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+COPY . .
 
 EXPOSE 7860
 
