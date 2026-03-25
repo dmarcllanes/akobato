@@ -85,5 +85,5 @@ setup_profile_routes(rt, game_state)
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 5001))
+    port = int(os.getenv("PORT", 7860))
     serve(host="0.0.0.0", port=port)

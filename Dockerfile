@@ -26,6 +26,6 @@ COPY --from=builder /app /app
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 5001
+EXPOSE 7860
 
 CMD ["python", "main.py"]
