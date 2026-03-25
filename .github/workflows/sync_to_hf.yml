@@ -1,0 +1,21 @@
+name: Sync to Hugging Face Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Push to Hugging Face Space
+        uses: huggingface/huggingface_hub/actions/sync-to-hub@main
+        with:
+          token: ${{ secrets.HF_TOKEN }}
+          repository: dmarcllanes/akobato
+          type: space
