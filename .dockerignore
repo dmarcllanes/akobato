@@ -22,8 +22,5 @@ CLAUDE.md
 FOLDER_STRUCTURE.md
 .DS_Store
 
-# uv artifacts not needed in image
-uv.lock
-
 # Leftover pip file
 requirements.txt
