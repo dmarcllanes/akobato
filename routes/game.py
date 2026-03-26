@@ -16,7 +16,7 @@ from components.verdicts import verdict_component
 from pages.landing import landing_page
 from pages.category import category_page
 from pages.arena   import waiting_page, arena_page, submitted_view, submit_status_fragment
-from pages.room    import room_wait_page, join_room_page, team_slots_fragment, team_pick_page
+from pages.room    import room_wait_page, join_room_page, team_slots_fragment, team_pick_page, room_list_fragment, ROOM_PAGE_SIZE
 from routes.profile import generate_alias
 from services.cache import TTLCache
 
@@ -187,6 +187,7 @@ def setup_game_routes(rt, game_state):
                                mode="private", team_size=team_size)
         match.alias1    = _lookup_alias(username, game_state)
         match.room_code = room_code
+        match.category  = category
 
         game_state.matches[match_id]        = match
         game_state.player_matches[username] = match_id
@@ -280,6 +281,32 @@ def setup_game_routes(rt, game_state):
             match.team_aliases(1),
             match.team_aliases(2),
         )
+
+    # ── Open room listing (HTMX fragment for JOIN panel) ─────────────────────
+
+    @rt("/room/list")
+    def get(page: int = 1):
+        # Collect all rooms still in "waiting" status
+        open_rooms = []
+        for code, mid in list(game_state.rooms.items()):
+            match = game_state.matches.get(mid)
+            if not match or match.status != "waiting":
+                continue
+            open_rooms.append({
+                "code":           code,
+                "team_size":      match.team_size,
+                "players_joined": len(match.all_players()),
+                "players_total":  match.team_size * 2,
+                "category":       getattr(match, "category", "random"),
+            })
+
+        total      = len(open_rooms)
+        total_pages = max(1, (total + ROOM_PAGE_SIZE - 1) // ROOM_PAGE_SIZE)
+        page        = max(1, min(page, total_pages))
+        start       = (page - 1) * ROOM_PAGE_SIZE
+        page_rooms  = open_rooms[start : start + ROOM_PAGE_SIZE]
+
+        return room_list_fragment(page_rooms, page, total_pages)
 
     # ── Private room — poll (host waiting) ────────────────────────────────────
 

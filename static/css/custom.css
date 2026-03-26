@@ -3271,3 +3271,196 @@ a:hover { color: var(--cyan); }
   background: color-mix(in srgb, var(--tp-btn-glow, #05D9E8) 15%, transparent);
   box-shadow: 0 0 16px color-mix(in srgb, var(--tp-btn-glow, #05D9E8) 30%, transparent);
 }
+
+/* Selectable category card state */
+.pf-cat-card {
+  cursor: pointer;
+  position: relative;
+}
+.pf-cat-check {
+  display: none;
+  position: absolute;
+  top: .4rem; right: .5rem;
+  font-size: .7rem;
+  font-weight: 900;
+  color: var(--brand-cyan);
+}
+.pf-cat-card--selected {
+  border-color: var(--brand-cyan) !important;
+  background: rgba(5,217,232,.1) !important;
+  box-shadow: 0 0 12px rgba(5,217,232,.2);
+}
+.pf-cat-card--selected .pf-cat-check { display: block; }
+
+/* ── Room List (rl-*) ──────────────────────────────────────────────────── */
+.rl-section-label {
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  color: var(--brand-muted);
+  margin-bottom: .6rem;
+}
+
+.rl-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .65rem .85rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.1);
+  background: rgba(255,255,255,.03);
+  margin-bottom: .45rem;
+  transition: border-color .15s, background .15s;
+}
+.rl-card:hover {
+  border-color: rgba(163,113,247,.4);
+  background: rgba(163,113,247,.06);
+}
+.rl-card--full {
+  opacity: .5;
+}
+
+.rl-card-left {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  flex: 1;
+  min-width: 0;
+}
+.rl-cat-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+.rl-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  min-width: 0;
+}
+.rl-cat-name {
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .04em;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rl-badges {
+  display: flex;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+.rl-badge {
+  font-size: .62rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: .1rem .4rem;
+  border-radius: 4px;
+}
+.rl-badge--size {
+  background: rgba(163,113,247,.18);
+  color: #a371f7;
+  border: 1px solid rgba(163,113,247,.3);
+}
+.rl-badge--players {
+  background: rgba(5,217,232,.12);
+  color: var(--brand-cyan);
+  border: 1px solid rgba(5,217,232,.25);
+}
+
+.rl-card-right {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-shrink: 0;
+}
+.rl-code {
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+  color: var(--brand-cyan);
+  font-family: inherit;
+}
+.rl-select-btn {
+  padding: .35rem .7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(163,113,247,.5);
+  background: rgba(163,113,247,.12);
+  color: #a371f7;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background .15s, box-shadow .15s;
+}
+.rl-select-btn:hover {
+  background: rgba(163,113,247,.25);
+  box-shadow: 0 0 10px rgba(163,113,247,.3);
+}
+.rl-full-badge {
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .1em;
+  color: var(--brand-muted);
+}
+
+.rl-empty {
+  text-align: center;
+  padding: 1.25rem .5rem;
+}
+
+.rl-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: .35rem;
+  margin-bottom: .5rem;
+}
+.rl-page-btn {
+  padding: .3rem .7rem;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,.12);
+  background: transparent;
+  color: var(--brand-muted);
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color .15s, color .15s;
+}
+.rl-page-btn:hover {
+  border-color: rgba(163,113,247,.5);
+  color: #a371f7;
+}
+.rl-page-label {
+  font-size: .7rem;
+  color: var(--brand-muted);
+  font-weight: 600;
+}
+.rl-page-spacer {
+  display: inline-block;
+  width: 60px;
+}
+
+.rl-separator {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  margin: .9rem 0 .85rem;
+}
+.rl-sep-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255,255,255,.1);
+}
+.rl-sep-label {
+  font-size: .68rem;
+  color: var(--brand-muted);
+  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: .04em;
+}

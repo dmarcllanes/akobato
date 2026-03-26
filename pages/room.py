@@ -1,5 +1,118 @@
 from fasthtml.common import *
 
+_CAT_ICONS = {
+    "random": "🎲", "world": "🌍", "technology": "💻",
+    "politics": "🏛️", "sports": "⚽", "entertainment": "🎬",
+    "science": "🔬", "business": "💰", "gaming": "🎮",
+}
+_CAT_NAMES = {
+    "random": "SURPRISE ME", "world": "WORLD NEWS", "technology": "TECHNOLOGY",
+    "politics": "POLITICS", "sports": "SPORTS", "entertainment": "ENTERTAINMENT",
+    "science": "SCIENCE", "business": "BUSINESS", "gaming": "GAMING",
+}
+
+ROOM_PAGE_SIZE = 6
+
+
+def room_list_fragment(rooms_data: list, page: int, total_pages: int) -> FT:
+    """HTMX-refreshable paginated list of open rooms for the JOIN panel."""
+
+    def _room_card(r: dict) -> FT:
+        code     = r["code"]
+        ts       = r["team_size"]
+        joined   = r["players_joined"]
+        total    = r["players_total"]
+        cat      = r.get("category", "random")
+        icon     = _CAT_ICONS.get(cat, "🎲")
+        cat_name = _CAT_NAMES.get(cat, cat.upper())
+        size_lbl = f"{ts}v{ts}"
+        spots    = total - joined
+        full_cls = " rl-card--full" if spots == 0 else ""
+
+        return Div(
+            # Left: category icon + info
+            Div(
+                Span(icon, cls="rl-cat-icon"),
+                Div(
+                    Div(cat_name, cls="rl-cat-name"),
+                    Div(
+                        Span(size_lbl, cls="rl-badge rl-badge--size"),
+                        Span(f"{joined}/{total} players", cls="rl-badge rl-badge--players"),
+                        cls="rl-badges",
+                    ),
+                    cls="rl-card-meta",
+                ),
+                cls="rl-card-left",
+            ),
+            # Right: code + select button
+            Div(
+                Span(code, cls="rl-code"),
+                (Button(
+                    "Select →",
+                    type="button",
+                    cls="rl-select-btn",
+                    onclick=f"selectRoom('{code}')",
+                ) if spots > 0 else Span("FULL", cls="rl-full-badge")),
+                cls="rl-card-right",
+            ),
+            cls=f"rl-card{full_cls}",
+        )
+
+    # Empty state
+    if not rooms_data:
+        empty = Div(
+            Span("🔍", style="font-size:1.6rem; display:block; margin-bottom:.5rem;"),
+            Div("No open rooms right now.", style="font-size:.82rem; color:var(--brand-muted); font-weight:600;"),
+            Div("Create one and invite friends!", style="font-size:.75rem; color:var(--brand-muted); margin-top:.2rem;"),
+            cls="rl-empty",
+        )
+        return Div(
+            empty,
+            id="room-list-fragment",
+            hx_get=f"/room/list?page=1",
+            hx_trigger="every 6000ms",
+            hx_target="#room-list-fragment",
+            hx_swap="outerHTML",
+        )
+
+    cards = [_room_card(r) for r in rooms_data]
+
+    # Pagination row
+    prev_btn = (Button(
+        "← Prev",
+        type="button",
+        cls="rl-page-btn",
+        hx_get=f"/room/list?page={page - 1}",
+        hx_target="#room-list-fragment",
+        hx_swap="outerHTML",
+    ) if page > 1 else Span(cls="rl-page-spacer"))
+
+    next_btn = (Button(
+        "Next →",
+        type="button",
+        cls="rl-page-btn",
+        hx_get=f"/room/list?page={page + 1}",
+        hx_target="#room-list-fragment",
+        hx_swap="outerHTML",
+    ) if page < total_pages else Span(cls="rl-page-spacer"))
+
+    pagination = Div(
+        prev_btn,
+        Span(f"{page} / {total_pages}", cls="rl-page-label"),
+        next_btn,
+        cls="rl-pagination",
+    )
+
+    return Div(
+        *cards,
+        (pagination if total_pages > 1 else ()),
+        id="room-list-fragment",
+        hx_get=f"/room/list?page={page}",
+        hx_trigger="every 6000ms",
+        hx_target="#room-list-fragment",
+        hx_swap="outerHTML",
+    )
+
 
 def team_pick_page(room_code: str, username: str, my_alias: str,
                    prompt: str, team_size: int,
@@ -409,27 +522,41 @@ def join_room_page(error: str = "") -> FT:
                     "min-height:1.1em; margin-bottom:1rem;"
                 )),
             ),
-            # Divider
+            # Topic label
             Div("PICK A TOPIC", style=(
                 "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
                 "color:var(--brand-muted); margin-bottom:.65rem;"
             )),
-            # Category grid
+            # Selectable category grid
             Div(
                 *[
-                    A(
+                    Div(
                         Span(icon, style="font-size:1.15rem;"),
-                        Div(
-                            Div(name, style="font-size:.78rem; font-weight:700; letter-spacing:.04em;"),
-                            cls="pf-cat-text",
-                        ),
-                        href=f"/room/create?category={slug}&team_size=1",
+                        Div(name, style="font-size:.78rem; font-weight:700; letter-spacing:.04em;"),
+                        Span("✓", cls="pf-cat-check"),
                         data_slug=slug,
+                        onclick=f"selectCategory('{slug}')",
+                        id=f"cat-{slug}",
                         cls="pf-cat-card",
                     )
                     for slug, icon, name in _PRIVATE_CATEGORIES
                 ],
                 cls="pf-cat-grid",
+            ),
+            # Selected topic summary
+            Div(id="cat-summary", style=(
+                "font-size:.78rem; color:var(--brand-cyan); min-height:1.2em;"
+                "margin-top:.65rem; text-align:center;"
+            )),
+            # Create Room button
+            Button(
+                "🔗  Create Room →",
+                type="button",
+                id="create-room-btn",
+                onclick="submitCreate()",
+                cls="btn-fight",
+                style="width:100%; margin-top:1rem; opacity:.4; cursor:not-allowed;",
+                disabled=True,
             ),
             id="panel-create",
             cls="pf-panel",
@@ -440,12 +567,37 @@ def join_room_page(error: str = "") -> FT:
             P(f"❌ {error}",
               style="color:var(--brand-red); margin:0 0 .85rem; font-size:.85rem;",
             ) if error else "",
-            P("Ask your friend to share their room link or 6-character code.",
-              style="color:var(--brand-muted); font-size:.82rem; margin:0 0 1.1rem;"),
+
+            # Open rooms list
+            Div("OPEN ROOMS", cls="rl-section-label"),
+            Div(
+                Div(
+                    Span(cls="wt-dot"),
+                    Span(cls="wt-dot"),
+                    Span(cls="wt-dot"),
+                    cls="wt-dots",
+                    style="justify-content:center; margin:.75rem 0;",
+                ),
+                id="room-list-fragment",
+                hx_get="/room/list?page=1",
+                hx_trigger="load",
+                hx_target="#room-list-fragment",
+                hx_swap="outerHTML",
+            ),
+
+            # Separator
+            Div(
+                Div(cls="rl-sep-line"),
+                Span("or enter code manually", cls="rl-sep-label"),
+                Div(cls="rl-sep-line"),
+                cls="rl-separator",
+            ),
+
             Form(
                 Input(
                     type="text",
                     name="code",
+                    id="join-code-input",
                     placeholder="Enter code  e.g.  WOLF42",
                     maxlength=6,
                     autocomplete="off",
@@ -495,10 +647,37 @@ def join_room_page(error: str = "") -> FT:
     });
     var hint = document.getElementById('team-size-hint');
     if(hint) hint.textContent = HINTS[n] || '';
-    document.querySelectorAll('.pf-cat-card').forEach(function(a){
-      var slug = a.dataset.slug;
-      if(slug) a.href = '/room/create?category='+slug+'&team_size='+n;
+  };
+
+  /* ── Category selection ──────────────────────────────── */
+  var selectedSlug = null;
+  var CAT_NAMES = {
+    random:'SURPRISE ME', world:'WORLD NEWS', technology:'TECHNOLOGY',
+    politics:'POLITICS', sports:'SPORTS', entertainment:'ENTERTAINMENT',
+    science:'SCIENCE', business:'BUSINESS', gaming:'GAMING',
+  };
+
+  window.selectCategory = function(slug) {
+    selectedSlug = slug;
+    document.querySelectorAll('.pf-cat-card').forEach(function(el){
+      el.classList.toggle('pf-cat-card--selected', el.dataset.slug === slug);
     });
+    var summary = document.getElementById('cat-summary');
+    if(summary) summary.textContent = '✓  ' + (CAT_NAMES[slug] || slug) + ' selected';
+    var btn = document.getElementById('create-room-btn');
+    if(btn){ btn.disabled = false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
+  };
+
+  window.submitCreate = function() {
+    if(!selectedSlug) return;
+    window.location.href = '/room/create?category='+selectedSlug+'&team_size='+currentSize;
+  };
+
+  /* ── Room list — select fills code input ─────────────────── */
+  window.selectRoom = function(code) {
+    selectOption('join');
+    var inp = document.getElementById('join-code-input');
+    if(inp){ inp.value = code; inp.focus(); }
   };
 
   setTeamSize(1);
