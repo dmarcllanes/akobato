@@ -3,6 +3,9 @@ from starlette.requests import Request
 
 from components.layout import layout
 from components.verdicts import leaderboard_row
+from services.cache import TTLCache
+
+_lb_cache = TTLCache(ttl=60)   # refresh leaderboard at most once per minute
 
 
 def setup_leaderboard_routes(rt, game_state):
@@ -64,6 +67,9 @@ def setup_leaderboard_routes(rt, game_state):
 
 
 def _fetch_leaderboard(game_state) -> list[dict]:
+    cached = _lb_cache.get("leaderboard")
+    if cached is not None:
+        return cached
     try:
         db = game_state.db
         if not db:
@@ -76,9 +82,9 @@ def _fetch_leaderboard(game_state) -> list[dict]:
             .execute()
         )
         rows = result.data or []
-        # Show alias in leaderboard instead of real username — never expose real username
         for r in rows:
             r["username"] = r.get("alias") or "Fighter"
+        _lb_cache.set("leaderboard", rows)
         return rows
     except Exception:
         return []

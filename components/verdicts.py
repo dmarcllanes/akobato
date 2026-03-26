@@ -8,15 +8,18 @@ def verdict_component(match: MatchState, username: str) -> FT:
     if v is None:
         return Div(P("Verdict loading...", cls="status-waiting"), id="submit-area")
 
-    # Resolve winner display name using aliases (anonymous to others)
-    if v.winner == "Player 1":
-        winner_name = match.alias_of(match.player1)
-    elif v.winner == "Player 2":
-        winner_name = match.alias_of(match.player2 or "")
+    # Resolve winner display name using aliases (never real usernames)
+    if v.winner == "Team A":
+        aliases = match.team_aliases(1)
+        winner_name = aliases[0] if len(aliases) == 1 else " & ".join(aliases)
+    elif v.winner == "Team B":
+        aliases = match.team_aliases(2)
+        winner_name = aliases[0] if len(aliases) == 1 else " & ".join(aliases)
     else:
         winner_name = "Nobody — it's a Tie!"
 
-    you_won = (v.winner == match.player_label(username))
+    my_team = match.player_team(username)
+    you_won  = my_team is not None and v.winner == match.team_label(my_team)
     you_tied = v.winner == "Tie"
 
     if you_won:
@@ -29,17 +32,9 @@ def verdict_component(match: MatchState, username: str) -> FT:
         outcome_msg = "💀 You Lost"
         outcome_color = "var(--brand-red)"
 
-    your_score = (
-        v.human_originality_score_p1
-        if match.player_label(username) == "Player 1"
-        else v.human_originality_score_p2
-    )
-    opp_score = (
-        v.human_originality_score_p2
-        if match.player_label(username) == "Player 1"
-        else v.human_originality_score_p1
-    )
-    opponent = match.opponent_alias_of(username)
+    your_score = v.human_originality_score_p1 if my_team == 1 else v.human_originality_score_p2
+    opp_score  = v.human_originality_score_p2 if my_team == 1 else v.human_originality_score_p1
+    opponent   = match.opponent_alias_of(username)
 
     return Div(
         # Replace timer + form area with this full verdict card
@@ -78,7 +73,7 @@ def verdict_component(match: MatchState, username: str) -> FT:
             ),
             cls="verdict-card card",
         ),
-        A("⚔️ Fight Again", href="/", cls="play-again-btn"),
+        A("⚔️ Find New Match", href="/play", cls="play-again-btn"),
         id="submit-area",
     )
 

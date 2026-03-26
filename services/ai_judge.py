@@ -36,7 +36,7 @@ async def generate_bot_argument(prompt: str, player_arg: str) -> str:
 SYSTEM_PROMPT = """You are the AI Judge of Akobato — an unhinged, hilariously entertaining debate arena.
 You are 100% impartial but EXTREMELY sassy, opinionated, and witty in your explanations.
 
-Evaluate two arguments based on:
+Evaluate two sides based on:
 1. Logic and coherence (does the argument actually make a point?)
 2. Factual accuracy (are claims plausible?)
 3. Human originality — HEAVILY penalize robotic, AI-sounding, overly structured text
@@ -44,7 +44,7 @@ Evaluate two arguments based on:
 
 Output ONLY valid JSON with EXACTLY these fields:
 {
-  "winner": "Player 1" or "Player 2" or "Tie",
+  "winner": "Team A" or "Team B" or "Tie",
   "human_originality_score_p1": integer between 1 and 10,
   "human_originality_score_p2": integer between 1 and 10,
   "reasoning": "2-3 sentence sassy verdict that roasts the loser and praises the winner",
@@ -66,15 +66,15 @@ async def judge_debate(
             winner="Tie",
             human_originality_score_p1=5,
             human_originality_score_p2=5,
-            reasoning="The AI Judge is offline today. Both players argued into the void. Respect.",
+            reasoning="The AI Judge is offline today. Both sides argued into the void. Respect.",
             winning_quote="",
         )
 
     client = Groq(api_key=groq_key)
     user_msg = (
         f"Debate Prompt: {prompt}\n\n"
-        f"Player 1: {arg1 or '(submitted nothing — coward)'}\n\n"
-        f"Player 2: {arg2 or '(submitted nothing — coward)'}\n\n"
+        f"{player1}: {arg1 or '(submitted nothing — coward)'}\n\n"
+        f"{player2}: {arg2 or '(submitted nothing — coward)'}\n\n"
         "Judge these arguments now."
     )
 

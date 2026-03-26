@@ -1891,57 +1891,63 @@ a:hover { color: var(--cyan); }
 }
 .cat-back:hover { color: #05D9E8; }
 
-/* ── Mode selector ──────────────────────────────────────────── */
-.mode-selector {
-  display: flex;
+/* ── Mode selector (old buttons — kept for any legacy refs) ──── */
+.mode-selector { display: flex; gap: .75rem; flex-wrap: wrap; }
+.mode-btn { display:flex; align-items:center; gap:.75rem; padding:.75rem 1.25rem;
+  border-radius:10px; border:1px solid var(--border); background:var(--bg-card);
+  cursor:pointer; transition:border-color .18s,background .18s; }
+.mode-btn--active { border-color:var(--cyan); background:rgba(5,217,232,.08); }
+.mode-icon { font-size:1.4rem; }
+.mode-label { font-family:var(--font-display); font-size:.72rem; font-weight:700;
+  letter-spacing:.12em; color:var(--text); }
+.mode-btn--active .mode-label { color:var(--cyan); }
+.mode-desc { font-size:.65rem; color:var(--text-muted); }
+
+/* ── Arena mode cards (new two-step selector) ─────────────────── */
+.arena-modes {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: .75rem;
-  justify-content: center;
-  flex-wrap: wrap;
-  margin-bottom: .5rem;
 }
-.mode-btn {
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  padding: .75rem 1.25rem;
+.arena-mode-card {
+  position: relative;
+  padding: 1rem;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-card);
   cursor: pointer;
   transition: border-color .18s, background .18s, box-shadow .18s;
-  text-align: left;
-  min-width: 200px;
+  user-select: none;
 }
-.mode-btn:hover {
+.arena-mode-card:hover {
   border-color: rgba(5,217,232,0.3);
-  background: rgba(5,217,232,0.05);
+  background: rgba(5,217,232,0.04);
 }
-.mode-btn--active {
+.arena-mode-card--active {
   border-color: var(--cyan);
-  background: rgba(5,217,232,0.08);
-  box-shadow: 0 0 16px rgba(5,217,232,0.12);
+  background: rgba(5,217,232,0.07);
+  box-shadow: 0 0 18px rgba(5,217,232,0.13);
 }
-.mode-icon {
-  font-size: 1.4rem;
-  flex-shrink: 0;
+/* Selected indicator — hidden by default, shown when active */
+.arena-mode-check {
+  display: none;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .6rem;
 }
-.mode-text {
+.arena-mode-card--active .arena-mode-check {
   display: flex;
-  flex-direction: column;
-  gap: .15rem;
 }
-.mode-label {
-  font-family: var(--font-display);
-  font-size: .72rem;
+/* Mode badge on category cards */
+.cat-mode-badge {
+  font-size: .62rem;
   font-weight: 700;
-  letter-spacing: .12em;
-  color: var(--text);
-}
-.mode-btn--active .mode-label { color: var(--cyan); }
-.mode-desc {
-  font-size: .65rem;
-  color: var(--text-muted);
-  letter-spacing: .04em;
+  letter-spacing: .06em;
+  padding: .15rem .45rem;
+  border-radius: 4px;
+  border: 1px solid;
+  white-space: nowrap;
+  transition: color .2s, border-color .2s, background .2s;
 }
 
 /* ── Private room — code display ────────────────────────────── */

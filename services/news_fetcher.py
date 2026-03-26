@@ -1,14 +1,25 @@
+"""
+Prompt fetcher — truly async, with a pre-fetched pool so match joins are instant.
+
+Flow:
+  warmup_prompt_pool()  — called at startup; fills 2 prompts per category
+  fetch_debate_prompt() — pops from pool instantly; refills pool in background
+                          falls back to live fetch only if pool is empty
+"""
+import asyncio
 import os
 import random
 import httpx
 from collections import deque
 from groq import Groq
 
-# Rolling window of recently used prompts — never repeat within last 60 matches
+# ── Rolling dedup window ───────────────────────────────────────────────────────
 _used_prompts: deque = deque(maxlen=60)
 
-# ── Fallback pools (used when News API or Groq is unavailable) ────────────────
+# ── Pre-fetched prompt pool: category → deque of ready prompts ────────────────
+_prompt_pool: dict[str, deque] = {}
 
+# ── Fallback pools ────────────────────────────────────────────────────────────
 FALLBACK = {
     "world": [
         "Should wealthy nations be legally required to accept climate refugees?",
@@ -148,7 +159,6 @@ FALLBACK = {
     ],
 }
 
-# Themes used to seed Groq when no news headline is available
 _AI_THEMES = {
     "world":         ["climate change", "migration", "international law", "geopolitics", "global inequality"],
     "technology":    ["artificial intelligence", "social media", "privacy", "automation", "big tech"],
@@ -160,7 +170,6 @@ _AI_THEMES = {
     "gaming":        ["loot boxes", "gaming addiction", "esports legitimacy", "toxic communities", "AI in games"],
 }
 
-# Categories with a direct NewsAPI top-headlines category
 _HEADLINES_CATEGORY = {
     "technology":    "technology",
     "sports":        "sports",
@@ -169,7 +178,6 @@ _HEADLINES_CATEGORY = {
     "business":      "business",
 }
 
-# Categories that need keyword search via /v2/everything
 _KEYWORD_SEARCH = {
     "world":    "international world global",
     "politics": "politics government election policy",
@@ -177,33 +185,64 @@ _KEYWORD_SEARCH = {
 }
 
 
+# ── Public API ─────────────────────────────────────────────────────────────────
+
 async def fetch_debate_prompt(category: str = "random") -> str:
+    """Return a debate prompt — instantly if pool is warm, else fetches live."""
     if category == "random":
         category = random.choice([k for k in FALLBACK if k != "random"])
 
-    headline = _get_headline(category)
-    prompt   = _headline_to_prompt(headline, category)
+    pool = _prompt_pool.get(category)
+    if pool:
+        prompt = pool.popleft()
+        # Refill one slot in background so pool stays warm
+        asyncio.create_task(_refill_pool(category, count=1))
+        _used_prompts.append(prompt)
+        return prompt
 
-    # Deduplicate: if this exact prompt was used recently, try once more
-    if prompt in _used_prompts:
-        headline = _get_headline(category)
-        prompt   = _headline_to_prompt(headline, category)
-
+    # Pool empty — live fetch (slow path, should be rare after warmup)
+    prompt = await _fetch_fresh_prompt(category)
     _used_prompts.append(prompt)
     return prompt
 
 
-def _get_headline(category: str) -> str:
+async def warmup_prompt_pool(count_per_category: int = 2) -> None:
+    """Pre-fetch prompts for every category. Call once at startup."""
+    cats = list(FALLBACK.keys())
+    await asyncio.gather(
+        *[_refill_pool(cat, count=count_per_category) for cat in cats],
+        return_exceptions=True,
+    )
+
+
+# ── Internal helpers ───────────────────────────────────────────────────────────
+
+async def _refill_pool(category: str, count: int = 1) -> None:
+    for _ in range(count):
+        try:
+            prompt = await _fetch_fresh_prompt(category)
+            _prompt_pool.setdefault(category, deque()).append(prompt)
+        except Exception:
+            pass
+
+
+async def _fetch_fresh_prompt(category: str) -> str:
+    headline = await _get_headline_async(category)
+    prompt   = await _headline_to_prompt_async(headline, category)
+    if prompt in _used_prompts:
+        headline = await _get_headline_async(category)
+        prompt   = await _headline_to_prompt_async(headline, category)
+    return prompt
+
+
+async def _get_headline_async(category: str) -> str:
     news_key = os.getenv("NEWS_API_KEY", "")
     if not news_key or "your_" in news_key:
         return ""
-
     try:
-        with httpx.Client(timeout=6) as client:
-
-            # ── Top-headlines endpoint (official category) ─────────────────
+        async with httpx.AsyncClient(timeout=6) as client:
             if category in _HEADLINES_CATEGORY:
-                resp = client.get(
+                resp = await client.get(
                     "https://newsapi.org/v2/top-headlines",
                     params={
                         "country":  "us",
@@ -212,77 +251,65 @@ def _get_headline(category: str) -> str:
                         "apiKey":   news_key,
                     },
                 )
-
-            # ── Everything endpoint (keyword search) ───────────────────────
             elif category in _KEYWORD_SEARCH:
-                resp = client.get(
+                resp = await client.get(
                     "https://newsapi.org/v2/everything",
                     params={
-                        "q":          _KEYWORD_SEARCH[category],
-                        "language":   "en",
-                        "sortBy":     "publishedAt",
-                        "pageSize":   20,
-                        "apiKey":     news_key,
+                        "q":        _KEYWORD_SEARCH[category],
+                        "language": "en",
+                        "sortBy":   "publishedAt",
+                        "pageSize": 20,
+                        "apiKey":   news_key,
                     },
                 )
             else:
                 return ""
-
             articles = resp.json().get("articles", [])
-            valid = [
-                a for a in articles
-                if a.get("title") and a["title"] != "[Removed]"
-            ]
-            # Pick randomly from top 10 so each call can yield a different headline
+            valid = [a for a in articles if a.get("title") and a["title"] != "[Removed]"]
             return random.choice(valid[:10])["title"] if valid else ""
-
     except Exception:
         return ""
 
 
-def _headline_to_prompt(headline: str, category: str) -> str:
+async def _headline_to_prompt_async(headline: str, category: str) -> str:
     groq_key = os.getenv("GROQ_API_KEY", "")
-
     if not groq_key:
         return _pick_unused(category)
 
-    try:
+    if headline:
+        content = (
+            f"News headline: '{headline}'\n\n"
+            "Write ONE punchy debate question based on this news. "
+            "Make it provocative, fun, and something two people would strongly disagree on. "
+            "Output ONLY the question. Max 25 words. No quotes around it."
+        )
+    else:
+        themes  = _AI_THEMES.get(category, ["current events"])
+        theme   = random.choice(themes)
+        content = (
+            f"Topic area: {category} — specifically about: {theme}\n\n"
+            "Invent ONE original, spicy debate question that two people would strongly disagree on. "
+            "Be provocative and specific, not generic. "
+            "Output ONLY the question. Max 25 words. No quotes around it."
+        )
+
+    def _call():
         client = Groq(api_key=groq_key)
-
-        if headline:
-            # Convert a real news headline into a debate question
-            content = (
-                f"News headline: '{headline}'\n\n"
-                "Write ONE punchy debate question based on this news. "
-                "Make it provocative, fun, and something two people would strongly disagree on. "
-                "Output ONLY the question. Max 25 words. No quotes around it."
-            )
-        else:
-            # No news available — ask Groq to invent one from a random theme
-            themes = _AI_THEMES.get(category, ["current events"])
-            theme  = random.choice(themes)
-            content = (
-                f"Topic area: {category} — specifically about: {theme}\n\n"
-                "Invent ONE original, spicy debate question that two people would strongly disagree on. "
-                "Be provocative and specific, not generic. "
-                "Output ONLY the question. Max 25 words. No quotes around it."
-            )
-
-        completion = client.chat.completions.create(
+        return client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": content}],
             max_tokens=60,
             temperature=1.0,
-        )
-        result = completion.choices[0].message.content.strip().strip('"').strip("'")
-        return result if result else _pick_unused(category)
+        ).choices[0].message.content.strip().strip('"').strip("'")
 
+    try:
+        result = await asyncio.to_thread(_call)
+        return result if result else _pick_unused(category)
     except Exception:
         return _pick_unused(category)
 
 
 def _pick_unused(category: str) -> str:
-    """Pick a prompt from the fallback pool that hasn't been used recently."""
     pool   = FALLBACK.get(category) or [p for v in FALLBACK.values() for p in v]
     unused = [p for p in pool if p not in _used_prompts]
     return random.choice(unused if unused else pool)

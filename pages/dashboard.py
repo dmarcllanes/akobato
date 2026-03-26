@@ -114,25 +114,25 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
         Div(
             Span("// SELECT MODE", cls="dash-section-tag"),
             Div(
-                # Quick fight
+                # Quick fight (human vs human)
                 A(
                     Div(
                         Div(
-                            Span("⚡", cls="dash-mode-icon"),
+                            Span("👥", cls="dash-mode-icon"),
                             Div(
-                                Div("QUICK FIGHT", cls="dash-mode-name"),
-                                Div("Random topic · instant match", cls="dash-mode-sub"),
+                                Div("QUICK MATCH", cls="dash-mode-name"),
+                                Div("Random topic · human vs human", cls="dash-mode-sub"),
                                 cls="dash-mode-text",
                             ),
                             cls="dash-mode-top",
                         ),
                         Div(
-                            Span("PRESS START", cls="dash-mode-press"),
+                            Span("FIND OPPONENT", cls="dash-mode-press"),
                             cls="dash-mode-footer",
                         ),
                         cls="dash-mode-inner",
                     ),
-                    href="/join?category=random",
+                    href="/join?category=random&mode=versus",
                     cls="dash-mode-card dash-mode-card--hot",
                 ),
                 # Choose category
@@ -154,6 +154,27 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
                         cls="dash-mode-inner",
                     ),
                     href="/play",
+                    cls="dash-mode-card",
+                ),
+                # Play with Friend
+                A(
+                    Div(
+                        Div(
+                            Span("🔗", cls="dash-mode-icon"),
+                            Div(
+                                Div("PLAY WITH FRIEND", cls="dash-mode-name"),
+                                Div("Private room · share a link", cls="dash-mode-sub"),
+                                cls="dash-mode-text",
+                            ),
+                            cls="dash-mode-top",
+                        ),
+                        Div(
+                            Span("INVITE →", cls="dash-mode-press"),
+                            cls="dash-mode-footer",
+                        ),
+                        cls="dash-mode-inner",
+                    ),
+                    href="/quick-room",
                     cls="dash-mode-card",
                 ),
                 # Leaderboard

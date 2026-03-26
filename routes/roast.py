@@ -3,6 +3,9 @@ from starlette.requests import Request
 
 from components.layout import layout
 from pages.roast import roast_page
+from services.cache import TTLCache
+
+_roast_cache = TTLCache(ttl=60)   # refresh burn board at most once per minute
 
 
 def setup_roast_routes(rt, game_state):
@@ -36,6 +39,9 @@ def setup_roast_routes(rt, game_state):
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 def _fetch_best_and_worst(game_state) -> tuple[list[dict], list[dict]]:
+    cached = _roast_cache.get("roast")
+    if cached is not None:
+        return cached
     try:
         db = game_state.db
         if not db:
@@ -84,7 +90,9 @@ def _fetch_best_and_worst(game_state) -> tuple[list[dict], list[dict]]:
 
         best  = sorted(submissions, key=lambda x: x["score"], reverse=True)[:5]
         worst = sorted(submissions, key=lambda x: x["score"])[:5]
-        return best, worst
+        result = (best, worst)
+        _roast_cache.set("roast", result)
+        return result
 
     except Exception:
         return [], []

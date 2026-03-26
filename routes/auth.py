@@ -106,7 +106,9 @@ def setup_auth_routes(rt, game_state):
             except Exception:
                 pass
 
-            return RedirectResponse("/dashboard", status_code=302)
+            # Honour post-login redirect (e.g. friend clicking a room link)
+            next_url = req.session.pop("after_login", "/dashboard")
+            return RedirectResponse(next_url, status_code=302)
 
         except Exception as e:
             # Surface the error as a query param so user knows what happened

@@ -172,16 +172,48 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
     )
 
 
-def submitted_view(username: str, match_id: str) -> FT:
+def submitted_view(username: str, match_id: str, submitted: int = 0, total: int = 2,
+                   judging: bool = False) -> FT:
+    """
+    Shown after a player submits.  The inner status div is HTMX-refreshed every
+    1.5 s so players see live "X / Y submitted" updates; the WS handles the
+    final redirect once the verdict is in.
+    """
+    if judging:
+        status_inner = P(
+            Span(cls="judge-spinner"),
+            " The AI Judge is deliberating...",
+            cls="status-waiting",
+        )
+    else:
+        remaining = max(0, total - submitted)
+        if remaining == 0:
+            status_inner = P(
+                Span(cls="judge-spinner"),
+                " The AI Judge is deliberating...",
+                cls="status-waiting",
+            )
+        else:
+            status_inner = P(
+                Span(cls="judge-spinner"),
+                f" Waiting for {remaining} more player{'s' if remaining != 1 else ''} to submit…"
+                f"  ({submitted}/{total} done)",
+                cls="status-waiting",
+            )
+
     return Div(
         Span("✅ Argument submitted!", cls="submitted-badge"),
-        P(
-            Span(cls="judge-spinner"),
-            "Waiting for the AI Judge...",
-            cls="status-waiting",
-            style="margin-top: 0.5rem;",
+        # Live-refreshed status — replaces itself every 1.5 s
+        Div(
+            status_inner,
+            id="submit-status",
+            hx_get=f"/game/{match_id}/submit-count?player={username}",
+            hx_trigger="every 1500ms",
+            hx_target="#submit-status",
+            hx_swap="outerHTML",
+            style="margin-top:.5rem;",
         ),
-        # WebSocket script — must come before keyword args
+        # WebSocket — instant redirect when verdict is ready
         Script(f"""
 (function(){{
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -193,7 +225,6 @@ def submitted_view(username: str, match_id: str) -> FT:
     }} catch(_) {{}}
   }};
   ws.onerror = function(){{
-    // Fallback: poll via HTTP
     setInterval(function(){{
       fetch('/game/{match_id}/status?player={username}')
         .then(function(r){{ return r.text(); }})

@@ -6,14 +6,18 @@ import uuid
 
 from models.schemas import MatchState, BOT_NAME, BOT_ALIAS
 from services.news_fetcher import fetch_debate_prompt
-from services.ai_judge import judge_debate, generate_bot_argument
+from services.ai_judge import judge_debate
 from components.layout import layout
 from components.verdicts import verdict_component
 from pages.landing import landing_page
 from pages.category import category_page
 from pages.arena   import waiting_page, arena_page, submitted_view
-from pages.room    import room_wait_page, join_room_page
+from pages.room    import room_wait_page, join_room_page, team_slots_fragment
 from routes.profile import generate_alias
+from services.cache import TTLCache
+
+_alias_cache  = TTLCache(ttl=300)   # 5 min — alias rarely changes
+_token_cache  = TTLCache(ttl=20)    # 20 s  — tokens change per match
 
 _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SW_JS    = os.path.join(_BASE_DIR, "static", "js", "sw.js")
@@ -85,16 +89,6 @@ def setup_game_routes(rt, game_state):
         match_id = str(uuid.uuid4())[:8]
         prompt   = await fetch_debate_prompt(category)
 
-        # ── Solo mode: instant start vs AI bot ────────────────────────────────
-        if mode == "solo":
-            match = MatchState(match_id=match_id, prompt=prompt, player1=username, mode="solo")
-            match.alias1 = _lookup_alias(username, game_state)
-            match.alias2 = BOT_ALIAS
-            match.start(BOT_NAME)
-            game_state.matches[match_id]        = match
-            game_state.player_matches[username] = match_id
-            return RedirectResponse(f"/game/{match_id}?player={username}", status_code=303)
-
         # ── Versus mode: pair with a waiting player ────────────────────────────
         if game_state.waiting and game_state.waiting[0] != username:
             waiting_name, waiting_mid = game_state.waiting
@@ -157,10 +151,17 @@ def setup_game_routes(rt, game_state):
             hx_swap="outerHTML",
         )
 
+    # ── Quick room (one-click from dashboard) ────────────────────────────────
+
+    @rt("/quick-room")
+    async def get(req: Request):
+        """Create a private room instantly with a random topic."""
+        return RedirectResponse("/room/create?category=random", status_code=303)
+
     # ── Private room — create ─────────────────────────────────────────────────
 
     @rt("/room/create")
-    async def get(req: Request, category: str = "random"):
+    async def get(req: Request, category: str = "random", team_size: int = 1):
         username = req.session.get("username")
         if not username:
             return RedirectResponse("/login", status_code=303)
@@ -178,7 +179,8 @@ def setup_game_routes(rt, game_state):
         room_code = _generate_room_code(game_state)
         match_id  = str(uuid.uuid4())[:8]
         prompt    = await fetch_debate_prompt(category)
-        match     = MatchState(match_id=match_id, prompt=prompt, player1=username, mode="private")
+        match     = MatchState(match_id=match_id, prompt=prompt, player1=username,
+                               mode="private", team_size=team_size)
         match.alias1    = _lookup_alias(username, game_state)
         match.room_code = room_code
 
@@ -188,10 +190,95 @@ def setup_game_routes(rt, game_state):
 
         _alias = req.session.get("alias") or username
         return layout(
-            room_wait_page(room_code, username),
+            room_wait_page(room_code, username, prompt=prompt,
+                           team_size=match.team_size,
+                           team1_aliases=match.team_aliases(1),
+                           team2_aliases=match.team_aliases(2)),
             title="Private Room | Akobato",
             user=username,
             alias=_alias,
+        )
+
+    # ── Friend join via shareable link ────────────────────────────────────────
+
+    @rt("/r/{code}")
+    async def get(req: Request, code: str):
+        """Direct join link — friend clicks this, gets taken straight into the room."""
+        username = req.session.get("username")
+        if not username:
+            req.session["after_login"] = f"/r/{code.upper()}"
+            return RedirectResponse("/login", status_code=303)
+
+        room_code = code.upper()
+        mid   = game_state.rooms.get(room_code)
+        match = game_state.matches.get(mid) if mid else None
+
+        if not match:
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+not+found", status_code=303)
+
+        # Already in this room — show wait page (team match may need more players)
+        if username in match.all_players():
+            _alias = req.session.get("alias") or username
+            return layout(
+                room_wait_page(room_code, username, prompt=match.prompt,
+                               team_size=match.team_size,
+                               team1_aliases=match.team_aliases(1),
+                               team2_aliases=match.team_aliases(2)),
+                title="Private Room | Akobato",
+                user=username,
+                alias=_alias,
+            )
+
+        if match.is_full():
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+is+full", status_code=303)
+        if match.status != "waiting":
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+already+started", status_code=303)
+        if username in game_state.player_matches:
+            return RedirectResponse(f"/join-room?error=You+are+already+in+a+match", status_code=303)
+
+        tokens = _fetch_tokens(username, game_state)
+        if tokens <= 0:
+            return RedirectResponse("/play?no_tokens=1", status_code=303)
+        _deduct_token(username, game_state)
+
+        user_alias = _lookup_alias(username, game_state)
+        team_num   = match.add_player(username, user_alias)
+        if team_num is None:
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+is+full", status_code=303)
+
+        # Track all current room members
+        for p in match.all_players():
+            game_state.player_matches[p] = mid
+
+        # If room is now full, redirect this last joiner straight to the game
+        if match.is_full():
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+
+        # Room still needs more players — show wait page
+        _alias = req.session.get("alias") or username
+        return layout(
+            room_wait_page(room_code, username, prompt=match.prompt,
+                           team_size=match.team_size,
+                           team1_aliases=match.team_aliases(1),
+                           team2_aliases=match.team_aliases(2)),
+            title="Private Room | Akobato",
+            user=username,
+            alias=_alias,
+        )
+
+    # ── Private room — live team slots (HTMX fragment) ────────────────────────
+
+    @rt("/room/teams/{room_code}")
+    def get(room_code: str):
+        mid   = game_state.rooms.get(room_code)
+        match = game_state.matches.get(mid) if mid else None
+        if not match:
+            return Div("Room expired", id="wt-team-slots")
+        return team_slots_fragment(
+            room_code,
+            match.team_size,
+            match.team_aliases(1),
+            match.team_aliases(2),
         )
 
     # ── Private room — poll (host waiting) ────────────────────────────────────
@@ -251,11 +338,15 @@ def setup_game_routes(rt, game_state):
 
         if not match:
             return RedirectResponse(f"/join-room?error=Room+{room_code}+not+found", status_code=303)
+
+        # Already in this room — redirect to game/wait page
+        if username in match.all_players():
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+
+        if match.is_full():
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+is+full", status_code=303)
         if match.status != "waiting":
             return RedirectResponse(f"/join-room?error=Room+{room_code}+already+started", status_code=303)
-        if match.player1 == username:
-            return RedirectResponse(f"/join-room?error=You+cannot+join+your+own+room", status_code=303)
-
         if username in game_state.player_matches:
             return RedirectResponse(f"/join-room?error=You+are+already+in+a+match", status_code=303)
 
@@ -264,12 +355,28 @@ def setup_game_routes(rt, game_state):
             return RedirectResponse("/play?no_tokens=1", status_code=303)
         _deduct_token(username, game_state)
 
-        match.start(username)
-        match.alias2 = _lookup_alias(username, game_state)
-        game_state.player_matches[username]      = mid
-        game_state.player_matches[match.player1] = mid
+        user_alias = _lookup_alias(username, game_state)
+        team_num   = match.add_player(username, user_alias)
+        if team_num is None:
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+is+full", status_code=303)
 
-        return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+        for p in match.all_players():
+            game_state.player_matches[p] = mid
+
+        if match.is_full():
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+
+        # Room still needs more players
+        _alias = req.session.get("alias") or username
+        return layout(
+            room_wait_page(room_code, username, prompt=match.prompt,
+                           team_size=match.team_size,
+                           team1_aliases=match.team_aliases(1),
+                           team2_aliases=match.team_aliases(2)),
+            title="Private Room | Akobato",
+            user=username,
+            alias=_alias,
+        )
 
     # ── Game arena ────────────────────────────────────────────────────────────
 
@@ -287,7 +394,10 @@ def setup_game_routes(rt, game_state):
             # Private room: show room-code waiting screen
             if match.room_code:
                 return layout(
-                    room_wait_page(match.room_code, player),
+                    room_wait_page(match.room_code, player, prompt=match.prompt,
+                                   team_size=match.team_size,
+                                   team1_aliases=match.team_aliases(1),
+                                   team2_aliases=match.team_aliases(2)),
                     title="Private Room | Akobato",
                     user=player or None,
                     alias=_alias,
@@ -334,9 +444,55 @@ def setup_game_routes(rt, game_state):
         if match.status == "complete" and match.verdict:
             return verdict_component(match, player)
 
-        return submitted_view(player, match_id)
+        submitted, total = match.submitted_count()
+        return submitted_view(player, match_id,
+                              submitted=submitted, total=total,
+                              judging=(match.status == "judging"))
 
-    # ── Status poll (HTMX) ────────────────────────────────────────────────────
+    # ── Submission progress poll (HTMX — replaces only the status inner div) ──
+
+    @rt("/game/{match_id}/submit-count")
+    async def get(match_id: str, player: str = ""):
+        match = game_state.matches.get(match_id)
+        if not match:
+            return Div(P("Match ended.", cls="status-waiting"), id="submit-status")
+
+        if match.is_expired():
+            match.auto_submit_expired()
+            await _maybe_judge(match, game_state)
+
+        if match.status == "complete" and match.verdict:
+            # Verdict is in — redirect via JS (WS should have already done this)
+            return Div(
+                Script(f"window.location.href='/game/{match_id}?player={player}';"),
+                id="submit-status",
+            )
+
+        submitted, total = match.submitted_count()
+        judging = match.status == "judging"
+
+        if judging or submitted >= total:
+            inner = P(Span(cls="judge-spinner"), " The AI Judge is deliberating...",
+                      cls="status-waiting")
+        else:
+            remaining = total - submitted
+            inner = P(
+                Span(cls="judge-spinner"),
+                f" Waiting for {remaining} more player{'s' if remaining != 1 else ''} to submit…"
+                f"  ({submitted}/{total} done)",
+                cls="status-waiting",
+            )
+
+        return Div(
+            inner,
+            id="submit-status",
+            hx_get=f"/game/{match_id}/submit-count?player={player}",
+            hx_trigger="every 1500ms",
+            hx_target="#submit-status",
+            hx_swap="outerHTML",
+        )
+
+    # ── Status poll (HTMX fallback) ───────────────────────────────────────────
 
     @rt("/game/{match_id}/status")
     async def get(match_id: str, player: str = ""):
@@ -345,17 +501,19 @@ def setup_game_routes(rt, game_state):
             return Div(P("Match not found.", cls="status-waiting"), id="submit-area")
 
         if match.is_expired():
-            match.submit(player, "")
+            match.auto_submit_expired()
             await _maybe_judge(match, game_state)
 
         if match.status == "complete" and match.verdict:
             return verdict_component(match, player)
 
+        submitted, total = match.submitted_count()
         return Div(
             Span("✅ Argument submitted!", cls="submitted-badge"),
             P(
                 Span(cls="judge-spinner"),
-                "The AI Judge is deliberating...",
+                " The AI Judge is deliberating..." if match.status == "judging"
+                else f" Waiting for {total - submitted} more player(s)…  ({submitted}/{total} done)",
                 cls="status-waiting",
                 style="margin-top:.5rem",
             ),
@@ -374,15 +532,9 @@ _judging_in_progress: set = set()
 
 
 async def _maybe_judge(match: MatchState, game_state) -> None:
-    # Solo mode: generate bot counter-argument first
-    if match.mode == "solo" and match.argument1 and match.argument2 is None:
-        match.argument2 = await generate_bot_argument(match.prompt, match.argument1)
-        match.status = "judging"
-
     if match.status != "judging":
         return
 
-    # Prevent duplicate judging calls for the same match
     if match.match_id in _judging_in_progress:
         return
     _judging_in_progress.add(match.match_id)
@@ -390,16 +542,14 @@ async def _maybe_judge(match: MatchState, game_state) -> None:
     try:
         verdict = await judge_debate(
             prompt=match.prompt,
-            player1=match.player1,  arg1=match.argument1 or "",
-            player2=match.player2 or "Player 2", arg2=match.argument2 or "",
+            player1=match.team_label(1), arg1=match.combined_arg(1),
+            player2=match.team_label(2), arg2=match.combined_arg(2),
         )
         match.verdict = verdict
         match.status  = "complete"
         _save_to_db(match, game_state)
-        # Free both players so they can join a new match
-        for p in [match.player1, match.player2]:
-            if p:
-                game_state.player_matches.pop(p, None)
+        for p in match.all_players():
+            game_state.player_matches.pop(p, None)
     finally:
         _judging_in_progress.discard(match.match_id)
 
@@ -410,21 +560,18 @@ def _save_to_db(match: MatchState, game_state) -> None:
         if not db:
             return
         v = match.verdict
+        all_players = match.all_players()
 
-        for p in [match.player1, match.player2]:
-            if not p:
-                continue
+        for p in all_players:
             db.table("players").upsert({"username": p, "score": 0}, on_conflict="username").execute()
 
         def outcome(player):
-            label = match.player_label(player)
             if v.winner == "Tie":
                 return "tie"
-            return "win" if v.winner == label else "loss"
+            player_team = match.player_team(player)  # 1 or 2
+            return "win" if v.winner == match.team_label(player_team) else "loss"
 
-        for p in [match.player1, match.player2]:
-            if not p:
-                continue
+        for p in all_players:
             result      = outcome(p)
             score_delta = 3 if result == "win" else 1 if result == "tie" else 0
             db.rpc("increment_player_stats", {
@@ -440,8 +587,8 @@ def _save_to_db(match: MatchState, game_state) -> None:
             "prompt":        match.prompt,
             "player1":       match.player1,
             "player2":       match.player2,
-            "argument1":     match.argument1,
-            "argument2":     match.argument2,
+            "argument1":     match.combined_arg(1),
+            "argument2":     match.combined_arg(2),
             "winner":        v.winner,
             "reasoning":     v.reasoning,
             "winning_quote": v.winning_quote,
@@ -449,12 +596,11 @@ def _save_to_db(match: MatchState, game_state) -> None:
             "hp2_score":     v.human_originality_score_p2,
         }).execute()
 
-        # Restore 1 token per player after match completion (capped at 5)
-        for p in [match.player1, match.player2]:
-            if not p:
-                continue
+        # Restore 1 token per player after match completion
+        for p in all_players:
             try:
                 db.rpc("restore_player_token", {"p_username": p}).execute()
+                _token_cache.delete(p)
             except Exception:
                 pass
     except Exception:
@@ -472,11 +618,16 @@ def _generate_room_code(game_state) -> str:
 
 
 def _lookup_alias(username: str, game_state) -> str:
-    """Always returns a public alias — never the real username."""
+    """Always returns a public alias — never the real username. Cached for 5 min."""
+    cached = _alias_cache.get(username)
+    if cached is not None:
+        return cached
     try:
         db = game_state.db
         if not db:
-            return generate_alias(username)
+            alias = generate_alias(username)
+            _alias_cache.set(username, alias)
+            return alias
         result = (
             db.table("players")
             .select("alias")
@@ -485,20 +636,24 @@ def _lookup_alias(username: str, game_state) -> str:
             .execute()
         )
         alias = (result.data or {}).get("alias")
-        if alias:
-            return alias
-        # No alias saved yet — generate, persist, and return it
-        alias = generate_alias(username)
-        try:
-            db.table("players").update({"alias": alias}).eq("username", username).execute()
-        except Exception:
-            pass
+        if not alias:
+            alias = generate_alias(username)
+            try:
+                db.table("players").update({"alias": alias}).eq("username", username).execute()
+            except Exception:
+                pass
+        _alias_cache.set(username, alias)
         return alias
     except Exception:
-        return generate_alias(username)
+        alias = generate_alias(username)
+        _alias_cache.set(username, alias)
+        return alias
 
 
 def _fetch_tokens(username: str, game_state) -> int:
+    cached = _token_cache.get(username)
+    if cached is not None:
+        return cached
     try:
         db = game_state.db
         if not db:
@@ -511,12 +666,15 @@ def _fetch_tokens(username: str, game_state) -> int:
             .execute()
         )
         val = (result.data or {}).get("tokens")
-        return val if val is not None else 5
+        tokens = val if val is not None else 5
+        _token_cache.set(username, tokens)
+        return tokens
     except Exception:
         return 5
 
 
 def _deduct_token(username: str, game_state) -> None:
+    _token_cache.delete(username)   # invalidate so next read hits DB
     try:
         db = game_state.db
         if not db:

@@ -72,13 +72,14 @@ async def sw(request):
     )
 
 # ── Routes ────────────────────────────────────────────────────────────────────
-from routes.auth        import setup_auth_routes
-from routes.dashboard   import setup_dashboard_routes
-from routes.game        import setup_game_routes
-from routes.leaderboard import setup_leaderboard_routes
-from routes.profile     import setup_profile_routes
-from routes.roast       import setup_roast_routes
-from routes.ws          import setup_ws_routes
+from routes.auth          import setup_auth_routes
+from routes.dashboard     import setup_dashboard_routes
+from routes.game          import setup_game_routes
+from routes.leaderboard   import setup_leaderboard_routes
+from routes.profile       import setup_profile_routes
+from routes.roast         import setup_roast_routes
+from routes.ws            import setup_ws_routes
+from services.news_fetcher import warmup_prompt_pool
 
 setup_auth_routes(rt, game_state)
 setup_dashboard_routes(rt, game_state)
@@ -87,6 +88,13 @@ setup_leaderboard_routes(rt, game_state)
 setup_profile_routes(rt, game_state)
 setup_roast_routes(rt, game_state)
 setup_ws_routes(app, game_state)
+
+
+@app.on_event("startup")
+async def _startup():
+    import asyncio
+    # Pre-fetch 2 prompts per category so match joins are instant
+    asyncio.create_task(warmup_prompt_pool(count_per_category=2))
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
