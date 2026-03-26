@@ -5,7 +5,7 @@ from models.schemas import MatchState
 def waiting_page(username: str) -> FT:
     return Div(
 
-        # ── Animated radar ────────────────────────────────────────────────────
+        # ── Animated radar (never swapped — always visible) ───────────────────
         Div(
             Div(cls="wt-radar-ring wt-ring-1"),
             Div(cls="wt-radar-ring wt-ring-2"),
@@ -29,7 +29,7 @@ def waiting_page(username: str) -> FT:
             cls="wt-info",
         ),
 
-        # ── HTMX poll area ────────────────────────────────────────────────────
+        # ── Dots + label (never swapped — animation never resets) ─────────────
         Div(
             Div(
                 Span(cls="wt-dot"),
@@ -37,13 +37,21 @@ def waiting_page(username: str) -> FT:
                 Span(cls="wt-dot"),
                 cls="wt-dots",
             ),
-            Span("Searching", cls="wt-search-label"),
+            Div(
+                Span("Searching", cls="wt-search-label"),
+                Span("0:00", id="wt-elapsed", cls="wt-elapsed"),
+                cls="wt-search-row",
+            ),
+            cls="wt-searching",
+        ),
+
+        # ── Hidden poll trigger (only this tiny span gets swapped) ────────────
+        Span(
             id="poll-area",
             hx_get=f"/lobby/check/{username}",
-            hx_trigger="every 2s",
+            hx_trigger="every 500ms",
             hx_target="#poll-area",
             hx_swap="outerHTML",
-            cls="wt-searching",
         ),
 
         # ── Cancel ────────────────────────────────────────────────────────────
@@ -52,6 +60,20 @@ def waiting_page(username: str) -> FT:
             action=f"/lobby/cancel/{username}",
             method="post",
         ),
+
+        # ── Elapsed time counter ──────────────────────────────────────────────
+        Script("""
+(function(){
+  var el = document.getElementById('wt-elapsed');
+  if(!el) return;
+  var start = Date.now();
+  setInterval(function(){
+    var s = Math.floor((Date.now() - start) / 1000);
+    var m = Math.floor(s / 60);
+    el.textContent = m + ':' + String(s % 60).padStart(2,'0');
+  }, 1000);
+})();
+"""),
 
         cls="wt-page",
     )
@@ -75,7 +97,7 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
         Div(match.prompt, cls="prompt-box"),
 
         Div(
-            Div("60", id="timer-val"),
+            Div(str(match.duration), id="timer-val"),
             id="timer-display",
         ),
 
@@ -99,7 +121,7 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
             P("Waiting for your opponent to submit...", cls="status-waiting"),
             id="submit-area",
             hx_get=f"/game/{match.match_id}/status?player={username}",
-            hx_trigger="every 2s",
+            hx_trigger="every 500ms",
             hx_target="#submit-area",
             hx_swap="outerHTML",
         ),
@@ -107,7 +129,7 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
         Script(f"""
 (function() {{
   var startedAt = {started_at_ms};
-  var duration  = {MatchState.DURATION * 1000};
+  var duration  = {match.duration * 1000};
   var timerEl   = document.getElementById('timer-val');
   var displayEl = document.getElementById('timer-display');
   var submitted = false;
@@ -133,10 +155,15 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
 def submitted_view(username: str, match_id: str) -> FT:
     return Div(
         Span("✅ Argument submitted!", cls="submitted-badge"),
-        P("Waiting for the AI Judge...", cls="status-waiting", style="margin-top: 0.5rem;"),
+        P(
+            Span(cls="judge-spinner"),
+            "Waiting for the AI Judge...",
+            cls="status-waiting",
+            style="margin-top: 0.5rem;",
+        ),
         id="submit-area",
         hx_get=f"/game/{match_id}/status?player={username}",
-        hx_trigger="every 2s",
+        hx_trigger="every 500ms",
         hx_target="#submit-area",
         hx_swap="outerHTML",
     )

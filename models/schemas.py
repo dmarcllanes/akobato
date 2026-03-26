@@ -11,12 +11,20 @@ class JudgeVerdict(BaseModel):
     winning_quote: str  # Best sentence from winner (empty string if Tie)
 
 
-class MatchState:
-    DURATION = 60  # seconds
+DURATIONS = {"solo": 60, "versus": 120, "private": 120}
+BOT_NAME  = "AkobatoBot"
+BOT_ALIAS = "🤖 Akobato AI"
 
-    def __init__(self, match_id: str, prompt: str, player1: str):
-        self.match_id = match_id
-        self.prompt = prompt
+
+class MatchState:
+    DURATION = 60  # kept for legacy references; prefer instance .duration
+
+    def __init__(self, match_id: str, prompt: str, player1: str, mode: str = "versus"):
+        self.match_id  = match_id
+        self.prompt    = prompt
+        self.mode      = mode                          # "solo" | "versus" | "private"
+        self.duration  = DURATIONS.get(mode, 120)      # seconds
+        self.room_code: Optional[str] = None           # set for private rooms
         self.player1 = player1
         self.player2: Optional[str] = None
         self.alias1: Optional[str] = None   # public display name for player1
@@ -42,9 +50,9 @@ class MatchState:
 
     def time_remaining(self) -> int:
         if self.started_at is None:
-            return self.DURATION
+            return self.duration
         elapsed = time.time() - self.started_at
-        return max(0, int(self.DURATION - elapsed))
+        return max(0, int(self.duration - elapsed))
 
     def is_expired(self) -> bool:
         return self.status == "active" and self.time_remaining() == 0
@@ -56,13 +64,13 @@ class MatchState:
         return self.player2 if username == self.player1 else self.player1
 
     def alias_of(self, username: str) -> str:
-        """Returns the public alias for a player (falls back to username)."""
+        """Returns the public alias for a player. Never exposes real username."""
         if username == self.player1:
-            return self.alias1 or username
-        return self.alias2 or username or "Player 2"
+            return self.alias1 or "Fighter"
+        return self.alias2 or "Fighter"
 
     def opponent_alias_of(self, username: str) -> str:
-        """Returns the public alias of the opponent (falls back to username)."""
+        """Returns the opponent's public alias. Never exposes real username."""
         if username == self.player1:
-            return self.alias2 or self.player2 or "Opponent"
-        return self.alias1 or self.player1 or "Opponent"
+            return self.alias2 or "Opponent"
+        return self.alias1 or "Opponent"

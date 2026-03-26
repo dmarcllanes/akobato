@@ -1,7 +1,37 @@
 import os
 import json
+import asyncio
 from groq import Groq
 from models.schemas import JudgeVerdict
+
+BOT_SYSTEM = """You are AkobatoBot — a spicy, opinionated AI debater.
+You take the OPPOSING side of whatever the human just argued.
+Be bold, punchy, and human-sounding. Max 3 sentences. No bullet points."""
+
+
+async def generate_bot_argument(prompt: str, player_arg: str) -> str:
+    """Generate a counter-argument for the AI bot in solo mode."""
+    groq_key = os.getenv("GROQ_API_KEY", "")
+    if not groq_key:
+        return "I, AkobatoBot, refuse to dignify that argument with a response. You win by default — but don't get comfortable."
+
+    def _call():
+        client = Groq(api_key=groq_key)
+        return client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": BOT_SYSTEM},
+                {"role": "user", "content": f"Debate topic: {prompt}\n\nHuman argued: {player_arg}\n\nNow argue the opposite side."},
+            ],
+            max_tokens=120,
+            temperature=0.95,
+        ).choices[0].message.content.strip()
+
+    try:
+        return await asyncio.to_thread(_call)
+    except Exception:
+        return "Error loading bot response — the human wins this round. Enjoy it."
+
 
 SYSTEM_PROMPT = """You are the AI Judge of Akobato — an unhinged, hilariously entertaining debate arena.
 You are 100% impartial but EXTREMELY sassy, opinionated, and witty in your explanations.
@@ -22,7 +52,7 @@ Output ONLY valid JSON with EXACTLY these fields:
 }"""
 
 
-def judge_debate(
+async def judge_debate(
     prompt: str,
     player1: str,
     arg1: str,
@@ -48,7 +78,7 @@ def judge_debate(
         "Judge these arguments now."
     )
 
-    try:
+    def _call_groq():
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -59,13 +89,18 @@ def judge_debate(
             max_tokens=600,
             temperature=0.85,
         )
-        data = json.loads(completion.choices[0].message.content)
+        return completion.choices[0].message.content
+
+    try:
+        # Run the blocking Groq call in a thread so the server stays responsive
+        raw = await asyncio.to_thread(_call_groq)
+        data = json.loads(raw)
         return JudgeVerdict(**data)
-    except Exception as e:
+    except Exception:
         return JudgeVerdict(
             winner="Tie",
             human_originality_score_p1=5,
             human_originality_score_p2=5,
-            reasoning=f"The AI Judge crashed mid-deliberation. Both of you broke the system. Impressive.",
+            reasoning="The AI Judge crashed mid-deliberation. Both of you broke the system. Impressive.",
             winning_quote="",
         )

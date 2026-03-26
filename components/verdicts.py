@@ -84,12 +84,31 @@ def verdict_component(match: MatchState, username: str) -> FT:
 
 
 def leaderboard_row(rank: int, record: dict) -> FT:
-    medal = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, str(rank))
+    medal    = {1: "🥇", 2: "🥈", 3: "🥉"}.get(rank, "")
+    top3     = rank <= 3
+    row_cls  = f"lb-row {'lb-row--top' if top3 else ''} lb-row--{rank if top3 else 'rest'}"
+
+    wins   = record.get("wins", 0) or 0
+    losses = record.get("losses", 0) or 0
+    ties   = record.get("ties", 0) or 0
+    score  = record.get("score", 0) or 0
+    name   = record.get("username", "??")
+
+    rank_cell = Td(
+        Span(medal or str(rank), cls="lb-rank"),
+        cls="lb-td lb-td--rank",
+    )
+    name_cell = Td(
+        Span(name, cls="lb-name"),
+        cls="lb-td lb-td--name",
+    )
+
     return Tr(
-        Td(Span(medal, cls="rank-badge")),
-        Td(Strong(record.get("username", "??"))),
-        Td(Span(str(record.get("wins", 0)), cls="tag-win")),
-        Td(Span(str(record.get("losses", 0)), cls="tag-lose")),
-        Td(Span(str(record.get("ties", 0)), cls="tag-tie")),
-        Td(Strong(str(record.get("score", 0)))),
+        rank_cell,
+        name_cell,
+        Td(Span(str(wins),   cls="lb-stat lb-stat--win"),  cls="lb-td lb-td--stat"),
+        Td(Span(str(losses), cls="lb-stat lb-stat--lose"), cls="lb-td lb-td--stat"),
+        Td(Span(str(ties),   cls="lb-stat lb-stat--tie"),  cls="lb-td lb-td--stat"),
+        Td(Span(str(score),  cls="lb-score"),              cls="lb-td lb-td--score"),
+        cls=row_cls,
     )

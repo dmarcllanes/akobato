@@ -131,6 +131,33 @@ if('serviceWorker' in navigator){
         Title(title),
         *pwa_tags,
         *extra,
+        # ── Top progress bar (shown on every HTMX request) ────────────────
+        Div(id="htmx-progress"),
+        # ── Page-load overlay (fades out once DOM is ready) ───────────────
+        Div(
+            Div(cls="page-loader-ring"),
+            Span("LOADING", cls="page-loader-text"),
+            id="page-loader",
+        ),
+        Script("""
+(function(){
+  // Dismiss page-load overlay
+  var loader = document.getElementById('page-loader');
+  if(loader){
+    window.addEventListener('load', function(){
+      loader.classList.add('hidden');
+      setTimeout(function(){ loader.style.display='none'; }, 450);
+    });
+  }
+
+  // HTMX top progress bar
+  var bar = document.getElementById('htmx-progress');
+  if(bar){
+    document.addEventListener('htmx:beforeRequest', function(){ bar.classList.add('htmx-loading'); });
+    document.addEventListener('htmx:afterRequest',  function(){ bar.classList.remove('htmx-loading'); });
+  }
+})();
+"""),
         Header(
             Nav(
                 A(

@@ -25,18 +25,38 @@ def setup_leaderboard_routes(rt, game_state):
             return layout(content, title="Hall of Fame | Akobato", user=username, alias=_alias)
 
         table = Div(
-            Table(
-                Thead(Tr(Th("Rank"), Th("Fighter"), Th("Wins"), Th("Losses"), Th("Ties"), Th("Score"))),
-                Tbody(*[leaderboard_row(i + 1, r) for i, r in enumerate(rows)]),
-                cls="leaderboard-table",
+            # ── Page header ──────────────────────────────────────────────
+            Div(
+                H2("🏆 Hall of Fame", cls="lb-title"),
+                P("Top fighters ranked by score. Aliases only — identities stay hidden.",
+                  cls="lb-subtitle"),
+                cls="lb-header",
             ),
-            cls="card",
+            # ── Table ────────────────────────────────────────────────────
+            Div(
+                Table(
+                    Thead(
+                        Tr(
+                            Th("#",       cls="lb-th lb-th--rank"),
+                            Th("Fighter", cls="lb-th lb-th--name"),
+                            Th("W",       cls="lb-th lb-th--stat"),
+                            Th("L",       cls="lb-th lb-th--stat"),
+                            Th("T",       cls="lb-th lb-th--stat"),
+                            Th("Score",   cls="lb-th lb-th--score"),
+                        )
+                    ),
+                    Tbody(*[leaderboard_row(i + 1, r) for i, r in enumerate(rows)]),
+                    cls="leaderboard-table",
+                ),
+                cls="lb-table-wrap",
+            ),
+            cls="card lb-card",
         )
 
         return layout(
-            H2("🏆 Hall of Fame", style="text-align:center; margin-bottom:1.5rem;"),
             table,
-            A("⚔️ Enter the Arena", href="/dashboard" if username else "/login", cls="play-again-btn"),
+            A("⚔️ Enter the Arena", href="/dashboard" if username else "/login",
+              cls="play-again-btn", style="display:block; text-align:center; margin-top:1.5rem;"),
             title="Hall of Fame | Akobato",
             user=username,
             alias=_alias,

@@ -35,6 +35,7 @@ class GameState:
         self.matches: dict        = {}    # match_id -> MatchState
         self.player_matches: dict = {}    # username -> match_id
         self.waiting: tuple | None = None # (username, match_id)
+        self.rooms: dict          = {}    # room_code -> match_id  (private rooms)
         self.db = _init_supabase()
 
 

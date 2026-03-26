@@ -58,14 +58,70 @@ def category_page(username: str, tokens: int = 5) -> FT:
 
         no_tokens_banner,
 
+        # ── Mode selector ─────────────────────────────────────────────────────
+        Div(
+            Button(
+                Span("⚡", cls="mode-icon"),
+                Div(Span("SOLO", cls="mode-label"), Span("1 min · vs AI · instant", cls="mode-desc"), cls="mode-text"),
+                id="btn-solo", cls="mode-btn mode-btn--active", type="button", onclick="setMode('solo')",
+            ),
+            Button(
+                Span("👥", cls="mode-icon"),
+                Div(Span("VERSUS", cls="mode-label"), Span("2 min · vs human · matchmaking", cls="mode-desc"), cls="mode-text"),
+                id="btn-versus", cls="mode-btn", type="button", onclick="setMode('versus')",
+            ),
+            Button(
+                Span("🔗", cls="mode-icon"),
+                Div(Span("PRIVATE", cls="mode-label"), Span("2 min · invite friend · room code", cls="mode-desc"), cls="mode-text"),
+                id="btn-private", cls="mode-btn", type="button", onclick="setMode('private')",
+            ),
+            cls="mode-selector",
+        ),
+
+        # ── Join existing room (shown only in private mode) ────────────────────
+        Div(
+            Span("Already have a code?", cls="room-inline-label"),
+            Form(
+                Input(
+                    type="text", name="code", placeholder="WOLF42",
+                    maxlength=6, autocomplete="off", autocapitalize="characters",
+                    cls="room-code-input room-code-input--sm",
+                ),
+                Button("Join →", type="submit", cls="room-join-inline-btn"),
+                action="/room/enter", method="post", cls="room-inline-form",
+            ),
+            id="join-room-bar", cls="room-inline-bar", style="display:none;",
+        ),
+
         # ── Grid ──────────────────────────────────────────────────────────────
         Div(
             *[_cat_card(slug, icon, name, desc, color, i, disabled=no_tokens)
               for i, (slug, icon, name, desc, color) in enumerate(CATEGORIES)],
             cls="cat-grid",
+            id="cat-grid",
         ),
 
         A("← Back to dashboard", href="/dashboard", cls="cat-back"),
+
+        # ── Mode JS ───────────────────────────────────────────────────────────
+        Script("""
+(function(){
+  window.setMode = function(mode) {
+    ['solo','versus','private'].forEach(function(m){
+      document.getElementById('btn-'+m).classList.toggle('mode-btn--active', m === mode);
+    });
+    var bar = document.getElementById('join-room-bar');
+    if(bar) bar.style.display = mode === 'private' ? 'flex' : 'none';
+    document.querySelectorAll('.cat-card[data-slug]').forEach(function(a) {
+      if (!a.classList.contains('cat-card--disabled')) {
+        var base = mode === 'private' ? '/room/create' : '/join';
+        a.href = base + '?category=' + a.dataset.slug + (mode !== 'private' ? '&mode=' + mode : '');
+      }
+    });
+  };
+  setMode('solo');
+})();
+"""),
 
         cls="cat-page",
     )
@@ -76,26 +132,19 @@ def _cat_card(slug: str, icon: str, name: str, desc: str, color: str, idx: int, 
     extra_cls = " cat-card--random" if is_random else ""
     extra_cls += " cat-card--disabled" if disabled else ""
     return A(
-        # Corner brackets
         Div(cls="cat-corner cat-tl"),
         Div(cls="cat-corner cat-br"),
-
-        # Index number
         Span(f"{idx + 1:02d}", cls="cat-card-num"),
-
-        # Content
         Span(icon, cls="cat-card-icon"),
         Div(name, cls="cat-card-name", style=f"color:{color}"),
         Div(desc, cls="cat-card-desc"),
-
-        # Footer
         Div(
             Span("⚡ -1" if not disabled else "NO ENERGY", cls="cat-card-cost"),
             Span("▶ ENTER" if not disabled else "LOCKED", cls="cat-card-enter"),
             cls="cat-card-footer",
         ),
-
-        href="#" if disabled else f"/join?category={slug}",
+        href="#" if disabled else f"/join?category={slug}&mode=solo",
+        data_slug=slug,
         cls=f"cat-card{extra_cls}",
         style=f"--cat-color:{color}",
     )
