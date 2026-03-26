@@ -2572,3 +2572,189 @@ a:hover { color: var(--cyan); }
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* ============================================================
+   SUBMIT WAITING PANEL  (.sw-*)
+   ============================================================ */
+
+/* Outer wrapper that replaces submit-area */
+.sw-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 1.5rem 1rem;
+}
+
+/* Lock-in confirmation badge */
+.sw-locked-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .2rem;
+  animation: sw-pop .35s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes sw-pop {
+  from { opacity:0; transform:scale(.7); }
+  to   { opacity:1; transform:scale(1); }
+}
+
+/* Live status card */
+.sw-panel {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 12px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+/* Header row: icon + title */
+.sw-header {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+/* Slot pips row */
+.sw-pips {
+  display: flex;
+  gap: .45rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.sw-pip {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: 2px solid;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .7rem;
+  font-weight: 900;
+  transition: background .3s, border-color .3s, box-shadow .3s;
+}
+.sw-pip--done {
+  background: rgba(63,185,80,.18);
+  border-color: #3fb950;
+  box-shadow: 0 0 8px rgba(63,185,80,.45);
+  color: #3fb950;
+}
+.sw-pip--done::after { content: "✓"; }
+.sw-pip--wait {
+  background: rgba(255,255,255,.04);
+  border-color: rgba(255,255,255,.18);
+  color: rgba(255,255,255,.25);
+  animation: sw-pip-pulse 1.6s ease-in-out infinite;
+}
+.sw-pip--wait::after { content: "·"; }
+@keyframes sw-pip-pulse {
+  0%,100% { opacity: .5; }
+  50%      { opacity: 1; }
+}
+
+/* Progress bar */
+.sw-bar {
+  height: 5px;
+  background: rgba(255,255,255,.08);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.sw-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand-cyan), #a371f7);
+  border-radius: 99px;
+  transition: width .6s ease;
+  box-shadow: 0 0 8px rgba(5,217,232,.4);
+}
+
+/* Message row */
+.sw-msg {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  font-size: .82rem;
+  color: var(--brand-muted);
+}
+.sw-msg-text { flex: 1; }
+
+/* Bouncing dots (normal speed) */
+.sw-dots {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.sw-dots::before,
+.sw-dots::after,
+.sw-dots span {
+  content: '';
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--brand-muted);
+}
+/* Simpler: just use three spans generated via CSS */
+.sw-dots { position: relative; width: 24px; height: 12px; }
+.sw-dots::before,
+.sw-dots::after {
+  position: absolute; top: 3px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--brand-muted);
+  animation: sw-bounce 1.2s ease-in-out infinite;
+}
+.sw-dots::before { left: 0; animation-delay: 0s; }
+.sw-dots::after  { left: 9px; animation-delay: .2s; }
+
+/* For the third dot we use a box-shadow trick */
+.sw-dots {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--brand-muted);
+  box-shadow: 9px 0 0 var(--brand-muted), 18px 0 0 var(--brand-muted);
+  animation: sw-bounce 1.2s ease-in-out infinite;
+  animation-delay: .1s;
+  margin-top: 3px;
+}
+.sw-dots::before {
+  content: '';
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--brand-muted);
+  position: absolute;
+  left: -9px; top: 0;
+  animation: sw-bounce 1.2s ease-in-out infinite;
+  animation-delay: 0s;
+}
+.sw-dots::after {
+  content: '';
+  display: block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--brand-muted);
+  position: absolute;
+  left: 9px; top: 0;
+  animation: sw-bounce 1.2s ease-in-out infinite;
+  animation-delay: .2s;
+}
+.sw-dots { position: relative; }
+
+/* Fast variant for judging */
+.sw-dots--fast,
+.sw-dots--fast::before,
+.sw-dots--fast::after {
+  animation-duration: .6s;
+  background: #FFC200;
+  box-shadow: 9px 0 0 #FFC200, 18px 0 0 #FFC200;
+}
+
+@keyframes sw-bounce {
+  0%, 80%, 100% { transform: translateY(0);   opacity: .5; }
+  40%            { transform: translateY(-5px); opacity: 1; }
+}

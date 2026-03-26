@@ -250,8 +250,10 @@ def join_room_page(error: str = "") -> FT:
 
         # ── Header ────────────────────────────────────────────────────────────
         Div(
-            Div("// PRIVATE_ROOM.EXE", cls="wt-sys-label"),
-            H1("Private Room", cls="wt-title"),
+            Div("// PLAY_WITH_FRIEND.EXE", cls="wt-sys-label"),
+            H1("Play with Friend", cls="wt-title"),
+            P("Set your preferences, create a room, then share the link.",
+              style="color:var(--brand-muted); font-size:.85rem; margin:.25rem 0 0;"),
             cls="wt-info",
         ),
 
@@ -263,8 +265,9 @@ def join_room_page(error: str = "") -> FT:
                 Div(
                     Span("🔗", style="font-size:1.4rem;"),
                     Div(
-                        Div("CREATE A ROOM", style="font-weight:800; font-size:.95rem; letter-spacing:.06em;"),
-                        Div("Pick a topic — get a shareable code", style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
+                        Div("STEP 1 — CREATE YOUR ROOM", style="font-weight:800; font-size:.9rem; letter-spacing:.05em;"),
+                        Div("Choose team size and topic, then share the invite link",
+                            style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
                     ),
                     style="display:flex; align-items:center; gap:.75rem; margin-bottom:.85rem;",
                 ),
@@ -334,8 +337,8 @@ def join_room_page(error: str = "") -> FT:
                 Div(
                     Span("🔑", style="font-size:1.4rem;"),
                     Div(
-                        Div("JOIN A ROOM", style="font-weight:800; font-size:.95rem; letter-spacing:.06em;"),
-                        Div("Enter the code your friend shared", style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
+                        Div("STEP 2 — OR JOIN EXISTING ROOM", style="font-weight:800; font-size:.9rem; letter-spacing:.05em;"),
+                        Div("Enter the 6-character code a friend sent you", style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
                     ),
                     style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem;",
                 ),

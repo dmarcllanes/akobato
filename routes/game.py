@@ -1,8 +1,12 @@
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
+import asyncio
+import logging
 import os
 import uuid
+
+log = logging.getLogger(__name__)
 
 from models.schemas import MatchState, BOT_NAME, BOT_ALIAS
 from services.news_fetcher import fetch_debate_prompt
@@ -11,7 +15,7 @@ from components.layout import layout
 from components.verdicts import verdict_component
 from pages.landing import landing_page
 from pages.category import category_page
-from pages.arena   import waiting_page, arena_page, submitted_view
+from pages.arena   import waiting_page, arena_page, submitted_view, submit_status_fragment
 from pages.room    import room_wait_page, join_room_page, team_slots_fragment
 from routes.profile import generate_alias
 from services.cache import TTLCache
@@ -155,8 +159,8 @@ def setup_game_routes(rt, game_state):
 
     @rt("/quick-room")
     async def get(req: Request):
-        """Create a private room instantly with a random topic."""
-        return RedirectResponse("/room/create?category=random", status_code=303)
+        """Legacy shortcut — now sends to preference lobby first."""
+        return RedirectResponse("/join-room", status_code=303)
 
     # ── Private room — create ─────────────────────────────────────────────────
 
@@ -470,27 +474,7 @@ def setup_game_routes(rt, game_state):
 
         submitted, total = match.submitted_count()
         judging = match.status == "judging"
-
-        if judging or submitted >= total:
-            inner = P(Span(cls="judge-spinner"), " The AI Judge is deliberating...",
-                      cls="status-waiting")
-        else:
-            remaining = total - submitted
-            inner = P(
-                Span(cls="judge-spinner"),
-                f" Waiting for {remaining} more player{'s' if remaining != 1 else ''} to submit…"
-                f"  ({submitted}/{total} done)",
-                cls="status-waiting",
-            )
-
-        return Div(
-            inner,
-            id="submit-status",
-            hx_get=f"/game/{match_id}/submit-count?player={player}",
-            hx_trigger="every 1500ms",
-            hx_target="#submit-status",
-            hx_swap="outerHTML",
-        )
+        return submit_status_fragment(match_id, player, submitted, total, judging)
 
     # ── Status poll (HTMX fallback) ───────────────────────────────────────────
 
@@ -547,7 +531,7 @@ async def _maybe_judge(match: MatchState, game_state) -> None:
         )
         match.verdict = verdict
         match.status  = "complete"
-        _save_to_db(match, game_state)
+        await asyncio.to_thread(_save_to_db, match, game_state)
         for p in match.all_players():
             game_state.player_matches.pop(p, None)
     finally:
@@ -555,25 +539,44 @@ async def _maybe_judge(match: MatchState, game_state) -> None:
 
 
 def _save_to_db(match: MatchState, game_state) -> None:
-    try:
-        db = game_state.db
-        if not db:
-            return
-        v = match.verdict
-        all_players = match.all_players()
+    """Synchronous DB save — always run via asyncio.to_thread so it doesn't block the loop."""
+    db = game_state.db
+    if not db:
+        return
 
-        for p in all_players:
-            db.table("players").upsert({"username": p, "score": 0}, on_conflict="username").execute()
+    v           = match.verdict
+    all_players = match.all_players()
 
-        def outcome(player):
-            if v.winner == "Tie":
-                return "tie"
-            player_team = match.player_team(player)  # 1 or 2
-            return "win" if v.winner == match.team_label(player_team) else "loss"
+    # ── Normalise winner field ─────────────────────────────────────────────────
+    # LLM occasionally returns legacy "Player 1"/"Player 2" — map back to team labels
+    winner = v.winner
+    if winner == "Player 1":
+        winner = "Team A"
+    elif winner == "Player 2":
+        winner = "Team B"
 
-        for p in all_players:
-            result      = outcome(p)
-            score_delta = 3 if result == "win" else 1 if result == "tie" else 0
+    def outcome(player: str) -> str:
+        if winner == "Tie":
+            return "tie"
+        team = match.player_team(player)   # 1 or 2
+        return "win" if winner == match.team_label(team) else "loss"
+
+    # ── Ensure every player row exists (insert defaults, ignore if already there) ──
+    for p in all_players:
+        try:
+            db.table("players").insert({
+                "username": p,
+                "wins": 0, "losses": 0, "ties": 0, "score": 0, "tokens": 5,
+            }).execute()
+        except Exception:
+            # Row already exists — that's fine, ignore the unique-constraint error
+            pass
+
+    # ── Increment stats per player ─────────────────────────────────────────────
+    for p in all_players:
+        result      = outcome(p)
+        score_delta = 3 if result == "win" else 1 if result == "tie" else 0
+        try:
             db.rpc("increment_player_stats", {
                 "p_username": p,
                 "p_wins":     1 if result == "win"  else 0,
@@ -581,7 +584,29 @@ def _save_to_db(match: MatchState, game_state) -> None:
                 "p_ties":     1 if result == "tie"  else 0,
                 "p_score":    score_delta,
             }).execute()
+        except Exception as e:
+            log.warning("increment_player_stats RPC failed for %s, falling back: %s", p, e)
+            # Fallback: direct column increment
+            try:
+                existing = (
+                    db.table("players")
+                    .select("wins,losses,ties,score")
+                    .eq("username", p)
+                    .single()
+                    .execute()
+                )
+                row = existing.data or {}
+                db.table("players").update({
+                    "wins":   (row.get("wins",   0) or 0) + (1 if result == "win"  else 0),
+                    "losses": (row.get("losses", 0) or 0) + (1 if result == "loss" else 0),
+                    "ties":   (row.get("ties",   0) or 0) + (1 if result == "tie"  else 0),
+                    "score":  (row.get("score",  0) or 0) + score_delta,
+                }).eq("username", p).execute()
+            except Exception as e2:
+                log.error("Direct stat update also failed for %s: %s", p, e2)
 
+    # ── Save verdict record ────────────────────────────────────────────────────
+    try:
         db.table("verdicts").insert({
             "match_id":      match.match_id,
             "prompt":        match.prompt,
@@ -589,22 +614,37 @@ def _save_to_db(match: MatchState, game_state) -> None:
             "player2":       match.player2,
             "argument1":     match.combined_arg(1),
             "argument2":     match.combined_arg(2),
-            "winner":        v.winner,
+            "winner":        winner,
             "reasoning":     v.reasoning,
             "winning_quote": v.winning_quote,
             "hp1_score":     v.human_originality_score_p1,
             "hp2_score":     v.human_originality_score_p2,
         }).execute()
+    except Exception as e:
+        log.error("Failed to insert verdict for match %s: %s", match.match_id, e)
 
-        # Restore 1 token per player after match completion
-        for p in all_players:
+    # ── Restore 1 token per player ─────────────────────────────────────────────
+    for p in all_players:
+        try:
+            db.rpc("restore_player_token", {"p_username": p}).execute()
+            _token_cache.delete(p)
+        except Exception:
+            # Fallback: increment tokens directly (cap at 5)
             try:
-                db.rpc("restore_player_token", {"p_username": p}).execute()
+                existing = (
+                    db.table("players")
+                    .select("tokens")
+                    .eq("username", p)
+                    .single()
+                    .execute()
+                )
+                cur = (existing.data or {}).get("tokens", 0) or 0
+                db.table("players").update({
+                    "tokens": min(5, cur + 1)
+                }).eq("username", p).execute()
                 _token_cache.delete(p)
-            except Exception:
-                pass
-    except Exception:
-        pass
+            except Exception as e:
+                log.warning("Token restore failed for %s: %s", p, e)
 
 
 def _generate_room_code(game_state) -> str:

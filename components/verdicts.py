@@ -73,7 +73,12 @@ def verdict_component(match: MatchState, username: str) -> FT:
             ),
             cls="verdict-card card",
         ),
-        A("⚔️ Find New Match", href="/play", cls="play-again-btn"),
+        Div(
+            A("⚔️ Find New Match", href="/play", cls="play-again-btn"),
+            A("🏠 Dashboard", href="/dashboard", cls="play-again-btn",
+              style="background:rgba(255,255,255,.08); color:var(--fg); border:1px solid rgba(255,255,255,.15);"),
+            style="display:flex; gap:.75rem; flex-wrap:wrap; justify-content:center;",
+        ),
         id="submit-area",
     )
 

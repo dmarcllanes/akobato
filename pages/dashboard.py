@@ -163,7 +163,7 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
                             Span("🔗", cls="dash-mode-icon"),
                             Div(
                                 Div("PLAY WITH FRIEND", cls="dash-mode-name"),
-                                Div("Private room · share a link", cls="dash-mode-sub"),
+                                Div("Set teams · pick topic · invite", cls="dash-mode-sub"),
                                 cls="dash-mode-text",
                             ),
                             cls="dash-mode-top",
@@ -174,7 +174,7 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
                         ),
                         cls="dash-mode-inner",
                     ),
-                    href="/quick-room",
+                    href="/join-room",
                     cls="dash-mode-card",
                 ),
                 # Leaderboard

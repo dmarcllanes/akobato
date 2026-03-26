@@ -172,48 +172,97 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
     )
 
 
-def submitted_view(username: str, match_id: str, submitted: int = 0, total: int = 2,
-                   judging: bool = False) -> FT:
+def submit_status_fragment(match_id: str, player: str,
+                           submitted: int, total: int, judging: bool) -> FT:
     """
-    Shown after a player submits.  The inner status div is HTMX-refreshed every
-    1.5 s so players see live "X / Y submitted" updates; the WS handles the
-    final redirect once the verdict is in.
+    HTMX-refreshable inner panel — returned by both submitted_view()
+    and the /game/{match_id}/submit-count endpoint so they always look identical.
     """
-    if judging:
-        status_inner = P(
-            Span(cls="judge-spinner"),
-            " The AI Judge is deliberating...",
-            cls="status-waiting",
-        )
+    is_judging = judging or submitted >= total
+
+    if is_judging:
+        icon    = "⚖️"
+        title   = "JUDGING IN PROGRESS"
+        title_c = "#FFC200"
+        msg     = "The AI Judge is deliberating…"
+        dots_cls = "sw-dots sw-dots--fast"
     else:
-        remaining = max(0, total - submitted)
-        if remaining == 0:
-            status_inner = P(
-                Span(cls="judge-spinner"),
-                " The AI Judge is deliberating...",
-                cls="status-waiting",
+        remaining = total - submitted
+        icon    = "⏳"
+        title   = f"WAITING FOR FIGHTERS  ·  {submitted}/{total}"
+        title_c = "var(--brand-cyan)"
+        msg     = (f"{remaining} more player{'s' if remaining != 1 else ''} "
+                   f"still need{'s' if remaining == 1 else ''} to submit")
+        dots_cls = "sw-dots"
+
+    # Slot pips — filled = submitted, hollow = pending
+    pips = Div(
+        *[
+            Span(
+                cls="sw-pip sw-pip--done" if i < submitted else "sw-pip sw-pip--wait",
             )
-        else:
-            status_inner = P(
-                Span(cls="judge-spinner"),
-                f" Waiting for {remaining} more player{'s' if remaining != 1 else ''} to submit…"
-                f"  ({submitted}/{total} done)",
-                cls="status-waiting",
-            )
+            for i in range(total)
+        ],
+        cls="sw-pips",
+    )
+
+    # Progress bar
+    pct = int(submitted / total * 100) if total else 100
+    bar = Div(
+        Div(cls="sw-bar-fill", style=f"width:{pct}%;"),
+        cls="sw-bar",
+    )
 
     return Div(
-        Span("✅ Argument submitted!", cls="submitted-badge"),
-        # Live-refreshed status — replaces itself every 1.5 s
+        # Icon + title
         Div(
-            status_inner,
-            id="submit-status",
-            hx_get=f"/game/{match_id}/submit-count?player={username}",
-            hx_trigger="every 1500ms",
-            hx_target="#submit-status",
-            hx_swap="outerHTML",
-            style="margin-top:.5rem;",
+            Span(icon, style="font-size:1.5rem; line-height:1;"),
+            Span(title, style=(
+                f"font-size:.65rem; font-weight:900; letter-spacing:.13em;"
+                f"color:{title_c};"
+            )),
+            cls="sw-header",
         ),
-        # WebSocket — instant redirect when verdict is ready
+        # Slot pips
+        pips,
+        # Progress bar
+        bar,
+        # Message
+        Div(
+            Div(cls=dots_cls),
+            Span(msg, cls="sw-msg-text"),
+            cls="sw-msg",
+        ),
+        # HTMX self-refresh
+        id="submit-status",
+        hx_get=f"/game/{match_id}/submit-count?player={player}",
+        hx_trigger="every 1500ms",
+        hx_target="#submit-status",
+        hx_swap="outerHTML",
+        cls="sw-panel",
+    )
+
+
+def submitted_view(username: str, match_id: str, submitted: int = 0, total: int = 2,
+                   judging: bool = False) -> FT:
+    """Shown after a player submits their argument."""
+    return Div(
+        # ── Lock-in confirmation ───────────────────────────────────────────────
+        Div(
+            Div(
+                Span("🔒", style="font-size:2rem; display:block; margin-bottom:.3rem;"),
+                Div("ARGUMENT LOCKED IN", style=(
+                    "font-size:.68rem; font-weight:900; letter-spacing:.15em;"
+                    "color:var(--brand-cyan);"
+                )),
+                cls="sw-locked-badge",
+            ),
+        ),
+
+        # ── Live status panel ─────────────────────────────────────────────────
+        submit_status_fragment(match_id, username, submitted, total, judging),
+
+        # ── WebSocket — instant redirect when verdict is ready ─────────────────
         Script(f"""
 (function(){{
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -235,5 +284,7 @@ def submitted_view(username: str, match_id: str, submitted: int = 0, total: int 
   }};
 }})();
 """),
+
         id="submit-area",
+        cls="sw-container",
     )

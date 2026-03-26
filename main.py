@@ -1,7 +1,13 @@
+import logging
 import os
 import secrets
 import time
 from dotenv import load_dotenv
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+)
 from fasthtml.common import *
 from starlette.middleware import Middleware
 from starlette.middleware.sessions import SessionMiddleware

@@ -28,9 +28,9 @@ _MODES = [
         "🔗",
         "PLAY WITH FRIEND",
         "2 MIN",
-        "Invite a specific person · shareable link",
+        "Set teams · pick topic · invite",
         "#05D9E8",
-        "/room/create",
+        "/join-room",
         "",
     ),
 ]
@@ -138,8 +138,8 @@ def category_page(username: str, tokens: int = 5) -> FT:
     },
     private: {
       icon:'🔗', label:'PLAY WITH FRIEND',  dur:'2 MIN',
-      desc:'Invite a specific person',      color:'#05D9E8',
-      base:'/room/create', qs:''
+      desc:'Set teams · pick topic · invite', color:'#05D9E8',
+      base:'/join-room', qs:''
     },
   };
 
