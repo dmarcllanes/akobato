@@ -79,6 +79,8 @@ def setup_ws_routes(app, game_state):
                     await websocket.send_text(json.dumps({"action": "error", "msg": "room_not_found"}))
                     break
                 if match.status != "waiting":
+                    # Brief delay so all players receive the redirect signal together
+                    await asyncio.sleep(2)
                     await websocket.send_text(json.dumps({
                         "action": "redirect",
                         "url": f"/game/{mid}?player={username}",

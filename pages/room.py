@@ -18,7 +18,6 @@ def room_list_fragment(rooms_data: list, page: int, total_pages: int) -> FT:
     """HTMX-refreshable paginated list of open rooms for the JOIN panel."""
 
     def _room_card(r: dict) -> FT:
-        code     = r["code"]
         ts       = r["team_size"]
         joined   = r["players_joined"]
         total    = r["players_total"]
@@ -28,32 +27,23 @@ def room_list_fragment(rooms_data: list, page: int, total_pages: int) -> FT:
         size_lbl = f"{ts}v{ts}"
         spots    = total - joined
         full_cls = " rl-card--full" if spots == 0 else ""
+        spots_lbl = "FULL" if spots == 0 else f"{spots} spot{'s' if spots != 1 else ''} open"
+        spots_color = "var(--brand-muted)" if spots == 0 else "#3fb950"
 
         return Div(
-            # Left: category icon + info
+            Span(icon, cls="rl-cat-icon"),
             Div(
-                Span(icon, cls="rl-cat-icon"),
+                Div(cat_name, cls="rl-cat-name"),
                 Div(
-                    Div(cat_name, cls="rl-cat-name"),
-                    Div(
-                        Span(size_lbl, cls="rl-badge rl-badge--size"),
-                        Span(f"{joined}/{total} players", cls="rl-badge rl-badge--players"),
-                        cls="rl-badges",
-                    ),
-                    cls="rl-card-meta",
+                    Span(size_lbl, cls="rl-badge rl-badge--size"),
+                    Span(f"{joined}/{total} players", cls="rl-badge rl-badge--players"),
+                    cls="rl-badges",
                 ),
-                cls="rl-card-left",
+                cls="rl-card-meta",
             ),
-            # Right: code + select button
-            Div(
-                Span(code, cls="rl-code"),
-                (Button(
-                    "Select →",
-                    type="button",
-                    cls="rl-select-btn",
-                    onclick=f"selectRoom('{code}')",
-                ) if spots > 0 else Span("FULL", cls="rl-full-badge")),
-                cls="rl-card-right",
+            Span(
+                spots_lbl,
+                style=f"font-size:.68rem; font-weight:700; color:{spots_color}; white-space:nowrap; flex-shrink:0;",
             ),
             cls=f"rl-card{full_cls}",
         )
@@ -256,27 +246,15 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
                     "font-weight:700; margin-bottom:.6rem;"
                 )),
             Div(
-                Span(id="share-url", style=(
-                    "flex:1; font-size:.85rem; font-family:inherit;"
-                    "color:var(--brand-cyan); word-break:break-all;"
-                )),
+                Span(id="share-url", cls="wt-share-url"),
                 Button(
                     "📋 Copy Link",
                     id="copy-link-btn",
                     type="button",
                     onclick="copyLink()",
-                    style=(
-                        "white-space:nowrap; padding:.5rem 1rem;"
-                        "background:var(--brand-cyan); color:#000; border:none;"
-                        "border-radius:6px; font-weight:700; cursor:pointer;"
-                        "font-size:.8rem; letter-spacing:.05em;"
-                    ),
+                    cls="wt-copy-btn",
                 ),
-                style=(
-                    "display:flex; align-items:center; gap:.75rem;"
-                    "background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);"
-                    "border-radius:8px; padding:.75rem 1rem;"
-                ),
+                cls="wt-share-row",
             ),
             style="margin-bottom:1rem;",
         ),
@@ -291,7 +269,7 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
             style="text-align:center; margin-bottom:1.25rem;",
         ),
 
-        # ── Waiting indicator ─────────────────────────────────────────────────
+        # ── Waiting / Starting indicator ──────────────────────────────────────
         (Div(
             Div(
                 Span(cls="wt-dot"),
@@ -305,7 +283,21 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
                 cls="wt-search-row",
             ),
             cls="wt-searching",
-        ) if players_joined < players_needed else ()),
+        ) if players_joined < players_needed else Div(
+            Div("⚔", style="font-size:2rem; margin-bottom:.5rem;"),
+            Div("ALL PLAYERS READY", style=(
+                "font-size:.8rem; font-weight:900; letter-spacing:.12em;"
+                "color:#3fb950; margin-bottom:.3rem;"
+            )),
+            Div("Match starting...", style=(
+                "font-size:.82rem; color:var(--brand-muted);"
+            )),
+            style=(
+                "text-align:center; padding:1.25rem;"
+                "background:rgba(63,185,80,.06); border:1px solid rgba(63,185,80,.25);"
+                "border-radius:10px;"
+            ),
+        )),
 
         # ── Cancel ────────────────────────────────────────────────────────────
         Form(
@@ -671,13 +663,6 @@ def join_room_page(error: str = "") -> FT:
   window.submitCreate = function() {
     if(!selectedSlug) return;
     window.location.href = '/room/create?category='+selectedSlug+'&team_size='+currentSize;
-  };
-
-  /* ── Room list — select fills code input ─────────────────── */
-  window.selectRoom = function(code) {
-    selectOption('join');
-    var inp = document.getElementById('join-code-input');
-    if(inp){ inp.value = code; inp.focus(); }
   };
 
   setTeamSize(1);

@@ -251,7 +251,17 @@ def setup_game_routes(rt, game_state):
             match.add_player_to_team(username, user_alias, 2)
             for p in match.all_players():
                 game_state.player_matches[p] = mid
-            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+            # Go to wait page — WebSocket will redirect everyone into the game together
+            _alias = req.session.get("alias") or username
+            return layout(
+                room_wait_page(room_code, username, prompt=match.prompt,
+                               team_size=match.team_size,
+                               team1_aliases=match.team_aliases(1),
+                               team2_aliases=match.team_aliases(2)),
+                title="Custom Room | Akobato",
+                user=username,
+                alias=_alias,
+            )
 
         # Team match — show team picker
         my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
@@ -387,7 +397,17 @@ def setup_game_routes(rt, game_state):
             match.add_player_to_team(username, user_alias, 2)
             for p in match.all_players():
                 game_state.player_matches[p] = mid
-            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+            # Go to wait page — WebSocket syncs everyone into the game together
+            _alias = req.session.get("alias") or username
+            return layout(
+                room_wait_page(room_code, username, prompt=match.prompt,
+                               team_size=match.team_size,
+                               team1_aliases=match.team_aliases(1),
+                               team2_aliases=match.team_aliases(2)),
+                title="Custom Room | Akobato",
+                user=username,
+                alias=_alias,
+            )
 
         # Team match — show team picker
         my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
@@ -471,9 +491,7 @@ def setup_game_routes(rt, game_state):
         for p in match.all_players():
             game_state.player_matches[p] = mid
 
-        if match.is_full():
-            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
-
+        # Always go to wait page — WebSocket redirects everyone into the game together
         _alias = req.session.get("alias") or username
         return layout(
             room_wait_page(room_code, username, prompt=match.prompt,

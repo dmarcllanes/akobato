@@ -770,6 +770,9 @@ a:hover { color: var(--cyan); }
   min-height: 70vh;
   text-align: center;
   padding: 2rem 1rem;
+  max-width: 560px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 /* Radar rings */
@@ -3304,9 +3307,8 @@ a:hover { color: var(--cyan); }
 .rl-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: .75rem;
-  padding: .65rem .85rem;
+  gap: .65rem;
+  padding: .6rem .85rem;
   border-radius: 8px;
   border: 1px solid rgba(255,255,255,.1);
   background: rgba(255,255,255,.03);
@@ -3321,13 +3323,6 @@ a:hover { color: var(--cyan); }
   opacity: .5;
 }
 
-.rl-card-left {
-  display: flex;
-  align-items: center;
-  gap: .6rem;
-  flex: 1;
-  min-width: 0;
-}
 .rl-cat-icon {
   font-size: 1.25rem;
   flex-shrink: 0;
@@ -3336,6 +3331,7 @@ a:hover { color: var(--cyan); }
   display: flex;
   flex-direction: column;
   gap: .2rem;
+  flex: 1;
   min-width: 0;
 }
 .rl-cat-name {
@@ -3368,44 +3364,6 @@ a:hover { color: var(--cyan); }
   background: rgba(5,217,232,.12);
   color: var(--brand-cyan);
   border: 1px solid rgba(5,217,232,.25);
-}
-
-.rl-card-right {
-  display: flex;
-  align-items: center;
-  gap: .5rem;
-  flex-shrink: 0;
-}
-.rl-code {
-  font-size: .78rem;
-  font-weight: 900;
-  letter-spacing: .12em;
-  color: var(--brand-cyan);
-  font-family: inherit;
-}
-.rl-select-btn {
-  padding: .35rem .7rem;
-  border-radius: 6px;
-  border: 1px solid rgba(163,113,247,.5);
-  background: rgba(163,113,247,.12);
-  color: #a371f7;
-  font-size: .72rem;
-  font-weight: 800;
-  letter-spacing: .05em;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  transition: background .15s, box-shadow .15s;
-}
-.rl-select-btn:hover {
-  background: rgba(163,113,247,.25);
-  box-shadow: 0 0 10px rgba(163,113,247,.3);
-}
-.rl-full-badge {
-  font-size: .65rem;
-  font-weight: 900;
-  letter-spacing: .1em;
-  color: var(--brand-muted);
 }
 
 .rl-empty {
@@ -3463,4 +3421,247 @@ a:hover { color: var(--cyan); }
   white-space: nowrap;
   font-weight: 600;
   letter-spacing: .04em;
+}
+
+/* ============================================================
+   RESPONSIVE OVERRIDES
+   Consistent mobile-first fixes across all pages.
+   Breakpoints: 640 · 520 · 480 · 420 · 360
+   ============================================================ */
+
+/* ── Global page containers ──────────────────────────────── */
+@media (max-width: 640px) {
+  .dashboard    { padding: 1.25rem 0 5rem; }
+  .cat-page     { padding: 1.25rem 0 3rem; }
+  .prof-page    { padding: 1.25rem 0 3rem; gap: 1.25rem; }
+  .wz-page      { padding: 0 0 2.5rem; }
+}
+
+/* ── Dashboard ───────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .dash-player-card { padding: 1.2rem 1rem; gap: 1rem; }
+  .dash-identity    { gap: .85rem; }
+  .dash-avatar      { width: 46px; height: 46px; }
+  .dash-avatar-img  { width: 46px; height: 46px; }
+}
+
+@media (max-width: 360px) {
+  .dash-player-card  { padding: 1rem .85rem; }
+  .dash-username     { font-size: .95rem; }
+  .dash-stats        { gap: .4rem; }
+  .dash-stat-card    { padding: .75rem .5rem; }
+  .dash-stat-value   { font-size: 1.2rem; }
+  .dash-modes        { gap: .5rem; }
+  .dash-mode-card    { padding: .9rem .85rem; }
+}
+
+/* ── Wizard / Category picker ────────────────────────────── */
+@media (max-width: 480px) {
+  .wz-title        { font-size: 1.2rem; }
+  .wz-header       { gap: .5rem; margin-bottom: 1rem; }
+  .wz-stepper      { margin-bottom: 1.25rem; }
+  .wz-step         { gap: .45rem; }
+  .wz-step-num     { width: 26px; height: 26px; font-size: .7rem; }
+  .wz-mode-card    { padding: .9rem .95rem; }
+  .wz-mode-name    { font-size: .82rem; }
+}
+
+@media (max-width: 400px) {
+  /* Hide long sub-text in stepper — keep numbers + label only */
+  .wz-step-sub     { display: none; }
+  .wz-connector    { margin: 0 .4rem; }
+  .wz-cat-grid     { grid-template-columns: 1fr 1fr; gap: .4rem; }
+  .wz-cat-card     { padding: .75rem .65rem; }
+  .wz-cat-name     { font-size: .75rem; }
+  .wz-cat-desc     { display: none; }
+  .wz-cat-badge    { font-size: .58rem; padding: .1rem .35rem; }
+  .wz-energy       { padding: .3rem .65rem; gap: .35rem; }
+  .wz-energy-pip   { width: 6px; height: 6px; }
+}
+
+@media (max-width: 360px) {
+  .wz-cat-grid { grid-template-columns: 1fr; }
+  .wz-cat-card { padding: .7rem .75rem; }
+}
+
+/* ── Custom Room / Join page (.pf-*) ─────────────────────── */
+@media (max-width: 480px) {
+  .pf-options  { flex-direction: column; gap: .6rem; }
+  .pf-option   { padding: .85rem .9rem; text-align: left; }
+  .pf-option-inner { display: flex; align-items: center; gap: .65rem; }
+  .pf-option-inner > span:first-child { font-size: 1.2rem; margin-bottom: 0 !important; }
+  .pf-panel    { padding: 1rem; }
+  .pf-cat-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: .4rem; }
+  .pf-cat-card { padding: .6rem .5rem .55rem; gap: .25rem; }
+}
+
+@media (max-width: 360px) {
+  .pf-cat-grid { grid-template-columns: 1fr 1fr; gap: .35rem; }
+  .pf-size-btn { padding: .35rem .7rem; font-size: .72rem; }
+}
+
+/* ── Team Picker (.tp-*) ─────────────────────────────────── */
+@media (max-width: 540px) {
+  .tp-grid {
+    flex-direction: column;
+    gap: .5rem;
+  }
+  .tp-team { min-width: 0; width: 100%; }
+  .tp-vs {
+    align-self: center;
+    padding: .15rem 0;
+    font-size: .68rem;
+    letter-spacing: .12em;
+    color: var(--brand-muted);
+    position: relative;
+    text-align: center;
+    width: 100%;
+  }
+  .tp-vs::before,
+  .tp-vs::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: calc(50% - 1.5rem);
+    height: 1px;
+    background: rgba(255,255,255,.12);
+  }
+  .tp-vs::before { left: 0; }
+  .tp-vs::after  { right: 0; }
+}
+
+/* ── Arena (.prompt-box, timer, textarea) ────────────────── */
+@media (max-width: 640px) {
+  .prompt-box    { font-size: 1.05rem; padding: 1.1rem; }
+  #timer-display { width: 68px; height: 68px; font-size: 1.5rem; }
+  .debate-textarea { min-height: 96px; font-size: .95rem; }
+}
+
+@media (max-width: 420px) {
+  .prompt-box    { font-size: .95rem; padding: .9rem; }
+  #timer-display { width: 58px; height: 58px; font-size: 1.3rem; border-width: 4px; }
+  .debate-textarea { min-height: 80px; }
+}
+
+/* ── Submit-waiting panel (.sw-*) ────────────────────────── */
+@media (max-width: 480px) {
+  .sw-panel   { padding: 1rem; }
+  .sw-heading { font-size: .78rem; }
+  .sw-pips    { gap: .35rem; }
+  .sw-pip     { width: 28px; height: 28px; font-size: .7rem; }
+}
+
+/* ── Verdict card ────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .verdict-header  { padding: 1.25rem 1rem; }
+  .verdict-winner  { font-size: 1.4rem; }
+  .verdict-quote   { font-size: .85rem; }
+  .verdict-reasoning { padding: 1rem; font-size: .88rem; }
+  .scores-row      { padding: .85rem 1rem; gap: .75rem; }
+  .score-value     { font-size: 1.55rem; }
+  .play-again-btn  { width: 100%; box-sizing: border-box; text-align: center; }
+}
+
+/* ── Waiting/Private room (.wt-*) ────────────────────────── */
+@media (max-width: 640px) {
+  .wt-page    { gap: 1.25rem; min-height: 60vh; padding: 1.5rem 1rem; }
+  .wt-radar   { width: 120px; height: 120px; }
+  .wt-ring-1  { width: 120px; height: 120px; }
+  .wt-ring-2  { width:  82px; height:  82px; }
+  .wt-ring-3  { width:  48px; height:  48px; }
+  .wt-radar-core { width: 40px; height: 40px; }
+  .wt-title   { font-size: 1.3rem; }
+  .wt-cancel-btn { font-size: .78rem; }
+}
+
+@media (max-width: 480px) {
+  .wt-page { gap: 1rem; padding: 1.25rem .5rem; }
+  /* Share-link row: stack on very small screens */
+  .wt-page [style*="display:flex"][style*="align-items:center"][style*="gap:.75rem"] {
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+}
+
+/* ── Room list (.rl-*) ───────────────────────────────────── */
+@media (max-width: 480px) {
+  .rl-card     { padding: .5rem .65rem; gap: .5rem; }
+  .rl-cat-icon { font-size: 1.1rem; }
+  .rl-cat-name { font-size: .7rem; }
+  .rl-badges   { gap: .25rem; }
+  .rl-badge    { font-size: .58rem; padding: .08rem .3rem; }
+}
+
+/* ── Leaderboard ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .lb-header  { padding: 1.25rem 1rem .9rem; }
+  .lb-title   { font-size: 1.25rem; }
+}
+
+/* ── Login card ──────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .login-card { padding: 1.6rem 1.25rem; }
+  .login-title { font-size: 1.3rem; }
+}
+
+/* ── Profile page ────────────────────────────────────────── */
+@media (max-width: 360px) {
+  .prof-title { font-size: 1.3rem; }
+  .prof-page  { gap: 1rem; }
+  .prof-stats { gap: .4rem; }
+}
+
+/* ── Shared buttons / inputs ─────────────────────────────── */
+@media (max-width: 480px) {
+  .btn-fight       { font-size: .9rem; padding: .65rem 1.5rem; }
+  .room-code-input { font-size: .9rem; }
+}
+
+/* ── Typography scale on phones ──────────────────────────── */
+@media (max-width: 480px) {
+  h1 { font-size: clamp(1.1rem, 5vw, 1.6rem); }
+  h2 { font-size: clamp(1rem, 4vw, 1.35rem); }
+}
+
+
+/* ── Waiting room — share link row ───────────────────────── */
+.wt-share-row {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: rgba(255,255,255,.05);
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 8px;
+  padding: .75rem 1rem;
+  flex-wrap: wrap;
+}
+.wt-share-url {
+  flex: 1;
+  min-width: 0;
+  font-size: .85rem;
+  font-family: inherit;
+  color: var(--brand-cyan);
+  word-break: break-all;
+}
+.wt-copy-btn {
+  white-space: nowrap;
+  padding: .5rem 1rem;
+  background: var(--brand-cyan);
+  color: #000;
+  border: none;
+  border-radius: 6px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: .8rem;
+  letter-spacing: .05em;
+  font-family: inherit;
+  flex-shrink: 0;
+  transition: opacity .15s;
+}
+.wt-copy-btn:hover { opacity: .85; }
+
+@media (max-width: 420px) {
+  .wt-share-row { gap: .5rem; padding: .65rem .75rem; }
+  .wt-share-url { font-size: .78rem; width: 100%; flex: none; }
+  .wt-copy-btn  { width: 100%; text-align: center; }
 }
