@@ -284,8 +284,19 @@ def setup_game_routes(rt, game_state):
                 alias=_alias,
             )
         if match.status == "waiting":
+            # Private room: show room-code waiting screen
+            if match.room_code:
+                return layout(
+                    room_wait_page(match.room_code, player),
+                    title="Private Room | Akobato",
+                    user=player or None,
+                    alias=_alias,
+                )
+            # Versus: show lobby animation
+            my_alias = _alias or _lookup_alias(player, game_state)
             return layout(
-                Div(H2("Waiting for your opponent..."), cls="waiting-box"),
+                waiting_page(my_alias, player),
+                title="Finding Opponent... | Akobato",
                 user=player or None,
                 alias=_alias,
             )

@@ -107,20 +107,85 @@ def room_wait_page(room_code: str, username: str) -> FT:
     )
 
 
+_PRIVATE_CATEGORIES = [
+    ("random",        "🎲", "SURPRISE ME"),
+    ("world",         "🌍", "WORLD NEWS"),
+    ("technology",    "💻", "TECHNOLOGY"),
+    ("politics",      "🏛️", "POLITICS"),
+    ("sports",        "⚽", "SPORTS"),
+    ("entertainment", "🎬", "ENTERTAINMENT"),
+    ("science",       "🔬", "SCIENCE"),
+    ("business",      "💰", "BUSINESS"),
+    ("gaming",        "🎮", "GAMING"),
+]
+
+
 def join_room_page(error: str = "") -> FT:
-    """Standalone page where a friend enters a room code to join."""
+    """Hub page: create a private room OR join one with a code."""
     return Div(
+
+        # ── Header ────────────────────────────────────────────────────────────
         Div(
-            Div("// JOIN_PRIVATE_ROOM.EXE", cls="wt-sys-label"),
-            H1("Join a Room", cls="wt-title"),
-            P("Enter the 6-character code your friend shared with you.", cls="room-sub"),
+            Div("// PRIVATE_ROOM.EXE", cls="wt-sys-label"),
+            H1("Private Room", cls="wt-title"),
             cls="wt-info",
         ),
 
+        # ── Two columns: Create | Join ─────────────────────────────────────────
         Div(
-            P(f"❌ {error}", style="color:var(--brand-red); margin:0 0 .75rem; font-size:.85rem;") if error else "",
-            Form(
+
+            # ── CREATE side ───────────────────────────────────────────────────
+            Div(
                 Div(
+                    Span("🔗", style="font-size:1.4rem;"),
+                    Div(
+                        Div("CREATE A ROOM", style="font-weight:800; font-size:.95rem; letter-spacing:.06em;"),
+                        Div("Pick a topic — get a shareable code", style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
+                    ),
+                    style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem;",
+                ),
+                Div(
+                    *[
+                        A(
+                            Span(icon, style="font-size:1.1rem;"),
+                            Span(name, style="font-size:.75rem; font-weight:700; letter-spacing:.04em;"),
+                            href=f"/room/create?category={slug}",
+                            style=(
+                                "display:flex; align-items:center; gap:.5rem;"
+                                "padding:.55rem .8rem; border-radius:6px;"
+                                "border:1px solid rgba(255,255,255,.1);"
+                                "background:rgba(255,255,255,.04);"
+                                "color:var(--fg); text-decoration:none;"
+                                "transition:background .15s, border-color .15s;"
+                                "white-space:nowrap;"
+                            ),
+                        )
+                        for slug, icon, name in _PRIVATE_CATEGORIES
+                    ],
+                    style=(
+                        "display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr));"
+                        "gap:.5rem;"
+                    ),
+                ),
+                cls="card",
+                style="padding:1.25rem; flex:1;",
+            ),
+
+            # ── JOIN side ─────────────────────────────────────────────────────
+            Div(
+                Div(
+                    Span("🔑", style="font-size:1.4rem;"),
+                    Div(
+                        Div("JOIN A ROOM", style="font-weight:800; font-size:.95rem; letter-spacing:.06em;"),
+                        Div("Enter the code your friend shared", style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
+                    ),
+                    style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem;",
+                ),
+                P(
+                    f"❌ {error}",
+                    style="color:var(--brand-red); margin:0 0 .75rem; font-size:.85rem;",
+                ) if error else "",
+                Form(
                     Input(
                         type="text",
                         name="code",
@@ -129,19 +194,20 @@ def join_room_page(error: str = "") -> FT:
                         autocomplete="off",
                         autocapitalize="characters",
                         cls="room-code-input",
-                        autofocus=True,
+                        style="width:100%; box-sizing:border-box; margin-bottom:.75rem;",
                     ),
-                    Button("Enter Room →", type="submit", cls="btn-fight"),
-                    cls="room-join-row",
+                    Button("Enter Room →", type="submit", cls="btn-fight", style="width:100%;"),
+                    action="/room/enter",
+                    method="post",
                 ),
-                action="/room/enter",
-                method="post",
+                cls="card",
+                style="padding:1.25rem; flex:1; min-width:220px;",
             ),
-            cls="card room-join-card",
+
+            style="display:flex; flex-wrap:wrap; gap:1.25rem; align-items:flex-start;",
         ),
 
-        A("← Back", href="/play", cls="cat-back", style="margin-top:1.5rem; display:inline-block;"),
+        A("← Back to Play", href="/play", cls="cat-back", style="margin-top:1rem; display:inline-block;"),
 
-        cls="wt-page",
-        style="gap:1.5rem;",
+        cls="cat-page",
     )
