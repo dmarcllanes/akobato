@@ -136,6 +136,32 @@ class MatchState:
             self.started_at = time.time()
         return team
 
+    def team_has_space(self, team: int) -> bool:
+        if team == 1:
+            return len(self.team1) < self.team_size
+        return len(self.team2) < self.team_size
+
+    def add_player_to_team(self, username: str, alias: str, team: int) -> bool:
+        """Add player to a specific team. Returns False if that team is full or player already in room."""
+        if username in self.all_players():
+            return False
+        if team == 1:
+            if len(self.team1) >= self.team_size:
+                return False
+            self.team1.append(username)
+            self._t1_aliases[username] = alias
+        elif team == 2:
+            if len(self.team2) >= self.team_size:
+                return False
+            self.team2.append(username)
+            self._t2_aliases[username] = alias
+        else:
+            return False
+        if self.is_full():
+            self.status     = "active"
+            self.started_at = time.time()
+        return True
+
     def is_full(self) -> bool:
         return len(self.team1) >= self.team_size and len(self.team2) >= self.team_size
 

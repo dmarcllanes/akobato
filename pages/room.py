@@ -1,6 +1,98 @@
 from fasthtml.common import *
 
 
+def team_pick_page(room_code: str, username: str, my_alias: str,
+                   prompt: str, team_size: int,
+                   team1_aliases: list, team2_aliases: list,
+                   error: str = "") -> FT:
+    """Shown to a joining player so they can choose Team A or Team B."""
+
+    def _team_panel(team_num: int, aliases: list, color: str, label: str) -> FT:
+        has_space = len(aliases) < team_size
+        slots = []
+        for a in aliases:
+            slots.append(Div(
+                Span("✓", style=f"color:{color}; font-weight:900; margin-right:.4rem;"),
+                Span(a, style="font-weight:700;"),
+                cls="tp-slot tp-slot--filled",
+            ))
+        for _ in range(team_size - len(aliases)):
+            slots.append(Div(
+                Span("···", style="color:var(--brand-muted); margin-right:.4rem;"),
+                Span("Open slot", style="color:var(--brand-muted); font-style:italic;"),
+                cls="tp-slot tp-slot--empty",
+            ))
+
+        return Div(
+            Div(label, cls="tp-team-label", style=f"color:{color};"),
+            Div(*slots, cls="tp-slots"),
+            (Button(
+                f"Join {label} →",
+                type="submit",
+                name="team",
+                value=str(team_num),
+                cls="tp-join-btn",
+                style=f"border-color:{color}; color:{color}; --tp-btn-glow:{color};",
+            ) if has_space else Div(
+                "FULL",
+                style=(
+                    f"text-align:center; font-size:.72rem; font-weight:900;"
+                    f"letter-spacing:.12em; color:var(--brand-muted);"
+                    f"padding:.55rem; border:1px solid rgba(255,255,255,.1);"
+                    f"border-radius:8px;"
+                )),
+            ),
+            cls="tp-team",
+            style=f"--tp-color:{color};",
+        )
+
+    return Div(
+
+        Div(
+            Div("// CUSTOM_ROOM.EXE", cls="wt-sys-label"),
+            H1("Choose Your Team", cls="wt-title"),
+            cls="wt-info",
+            style="margin-bottom:1rem;",
+        ),
+
+        # Topic hidden until match starts
+        Div(
+            Span("🔒", style="font-size:1rem; margin-right:.4rem;"),
+            Span("Topic revealed when all players have joined",
+                 style="font-size:.78rem; color:var(--brand-muted);"),
+            style=(
+                "background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.1);"
+                "border-radius:8px; padding:.65rem 1rem; margin-bottom:1.25rem;"
+                "text-align:center;"
+            ),
+        ),
+
+        # Error
+        (P(f"❌ {error}",
+           style="color:var(--brand-red); font-size:.85rem; margin-bottom:.85rem;")
+         if error else ()),
+
+        # Team grid
+        Form(
+            Input(type="hidden", name="player", value=username),
+            Input(type="hidden", name="code",   value=room_code),
+            Div(
+                _team_panel(1, team1_aliases, "#05D9E8", "TEAM A"),
+                Div("VS", cls="tp-vs"),
+                _team_panel(2, team2_aliases, "#a371f7", "TEAM B"),
+                cls="tp-grid",
+            ),
+            action="/room/pick-team",
+            method="post",
+        ),
+
+        A("← Back", href="/join-room", cls="cat-back",
+          style="margin-top:1rem; display:inline-block;"),
+
+        cls="wt-page",
+    )
+
+
 def room_wait_page(room_code: str, username: str, prompt: str = "",
                    team_size: int = 1, team1_aliases: list = None,
                    team2_aliases: list = None) -> FT:
@@ -21,19 +113,17 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
             style="margin-bottom:1.25rem;",
         ),
 
-        # ── Debate topic preview ───────────────────────────────────────────────
-        (Div(
-            Div("TODAY'S TOPIC", style=(
-                "font-size:.7rem; letter-spacing:.1em; color:var(--brand-muted);"
-                "font-weight:700; margin-bottom:.4rem;"
-            )),
-            Div(prompt, style="font-size:.95rem; color:var(--fg); line-height:1.4;"),
+        # Topic is hidden until match starts — revealed in the arena
+        Div(
+            Span("🔒", style="font-size:1rem; margin-right:.4rem;"),
+            Span("Topic revealed when all players join",
+                 style="font-size:.78rem; color:var(--brand-muted);"),
             style=(
-                "background:rgba(5,217,232,.06); border:1px solid rgba(5,217,232,.2);"
-                "border-radius:8px; padding:.85rem 1rem; margin-bottom:1.25rem;"
+                "background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.1);"
+                "border-radius:8px; padding:.65rem 1rem; margin-bottom:1.25rem;"
                 "text-align:center;"
             ),
-        ) if prompt else ()),
+        ),
 
         # ── Team slots (team matches only) ─────────────────────────────────────
         (team_slots_fragment(room_code, team_size, t1, t2) if is_team else ()),
@@ -245,165 +335,169 @@ _PRIVATE_CATEGORIES = [
 
 
 def join_room_page(error: str = "") -> FT:
-    """Hub page: create a private room OR join one with a code."""
+    """Custom Room hub — choose Create or Join, then configure."""
     return Div(
 
         # ── Header ────────────────────────────────────────────────────────────
         Div(
-            Div("// PLAY_WITH_FRIEND.EXE", cls="wt-sys-label"),
-            H1("Play with Friend", cls="wt-title"),
-            P("Set your preferences, create a room, then share the link.",
-              style="color:var(--brand-muted); font-size:.85rem; margin:.25rem 0 0;"),
+            Div("// CUSTOM_ROOM.EXE", cls="wt-sys-label"),
+            H1("Custom Room", cls="wt-title"),
             cls="wt-info",
+            style="margin-bottom:1.5rem;",
         ),
 
-        # ── Two columns: Create | Join ─────────────────────────────────────────
+        # ── Option toggle cards ────────────────────────────────────────────────
         Div(
-
-            # ── CREATE side ───────────────────────────────────────────────────
+            # Create card
             Div(
                 Div(
-                    Span("🔗", style="font-size:1.4rem;"),
-                    Div(
-                        Div("STEP 1 — CREATE YOUR ROOM", style="font-weight:800; font-size:.9rem; letter-spacing:.05em;"),
-                        Div("Choose team size and topic, then share the invite link",
-                            style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
-                    ),
-                    style="display:flex; align-items:center; gap:.75rem; margin-bottom:.85rem;",
-                ),
-
-                # ── Team size selector ────────────────────────────────────────
-                Div(
-                    Div("TEAM SIZE", style=(
-                        "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
-                        "color:var(--brand-muted); margin-bottom:.5rem;"
+                    Span("🔗", style="font-size:1.6rem; margin-bottom:.35rem; display:block;"),
+                    Div("CREATE A ROOM", style=(
+                        "font-size:.78rem; font-weight:900; letter-spacing:.1em;"
+                        "color:var(--brand-cyan);"
                     )),
-                    Div(
-                        *[
-                            Button(
-                                label,
-                                type="button",
-                                data_size=str(n),
-                                onclick=f"setTeamSize({n})",
-                                id=f"ts-btn-{n}",
-                                style=(
-                                    "padding:.4rem .9rem; border-radius:6px; cursor:pointer;"
-                                    "font-size:.75rem; font-weight:800; letter-spacing:.07em;"
-                                    "border:1px solid rgba(255,255,255,.15);"
-                                    "background:rgba(255,255,255,.04); color:var(--brand-muted);"
-                                    "transition:all .15s;"
-                                ),
-                            )
-                            for n, label in [(1, "1v1"), (2, "2v2"), (3, "3v3")]
-                        ],
-                        style="display:flex; gap:.5rem; margin-bottom:1rem;",
-                    ),
-                    Div(id="team-size-hint", style="font-size:.75rem; color:var(--brand-muted); margin-bottom:.85rem;"),
+                    Div("Set team size · pick topic · invite friends",
+                        style="font-size:.72rem; color:var(--brand-muted); margin-top:.2rem;"),
+                    cls="pf-option-inner",
                 ),
+                id="opt-create",
+                onclick="selectOption('create')",
+                cls="pf-option pf-option--active",
+            ),
+            # Join card
+            Div(
+                Div(
+                    Span("🔑", style="font-size:1.6rem; margin-bottom:.35rem; display:block;"),
+                    Div("JOIN A ROOM", style=(
+                        "font-size:.78rem; font-weight:900; letter-spacing:.1em;"
+                        "color:#a371f7;"
+                    )),
+                    Div("Enter the code a friend shared with you",
+                        style="font-size:.72rem; color:var(--brand-muted); margin-top:.2rem;"),
+                    cls="pf-option-inner",
+                ),
+                id="opt-join",
+                onclick="selectOption('join')",
+                cls="pf-option",
+            ),
+            cls="pf-options",
+        ),
 
-                # ── Category grid ─────────────────────────────────────────────
+        # ── CREATE panel ──────────────────────────────────────────────────────
+        Div(
+            # Team size selector
+            Div(
+                Div("TEAM SIZE", style=(
+                    "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
+                    "color:var(--brand-muted); margin-bottom:.5rem;"
+                )),
                 Div(
                     *[
-                        A(
-                            Span(icon, style="font-size:1.1rem;"),
-                            Span(name, style="font-size:.75rem; font-weight:700; letter-spacing:.04em;"),
-                            href=f"/room/create?category={slug}&team_size=1",
-                            data_slug=slug,
-                            cls="priv-cat-link",
-                            style=(
-                                "display:flex; align-items:center; gap:.5rem;"
-                                "padding:.55rem .8rem; border-radius:6px;"
-                                "border:1px solid rgba(255,255,255,.1);"
-                                "background:rgba(255,255,255,.04);"
-                                "color:var(--fg); text-decoration:none;"
-                                "transition:background .15s, border-color .15s;"
-                                "white-space:nowrap;"
-                            ),
+                        Button(
+                            label,
+                            type="button",
+                            onclick=f"setTeamSize({n})",
+                            id=f"ts-btn-{n}",
+                            cls="pf-size-btn",
                         )
-                        for slug, icon, name in _PRIVATE_CATEGORIES
+                        for n, label in [(1, "1v1"), (2, "2v2"), (3, "3v3")]
                     ],
-                    style=(
-                        "display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr));"
-                        "gap:.5rem;"
-                    ),
+                    style="display:flex; gap:.5rem; margin-bottom:.5rem;",
                 ),
-
-                cls="card",
-                style="padding:1.25rem; flex:1;",
+                Div(id="team-size-hint", style=(
+                    "font-size:.75rem; color:var(--brand-cyan);"
+                    "min-height:1.1em; margin-bottom:1rem;"
+                )),
             ),
-
-            # ── JOIN side ─────────────────────────────────────────────────────
+            # Divider
+            Div("PICK A TOPIC", style=(
+                "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
+                "color:var(--brand-muted); margin-bottom:.65rem;"
+            )),
+            # Category grid
             Div(
-                Div(
-                    Span("🔑", style="font-size:1.4rem;"),
-                    Div(
-                        Div("STEP 2 — OR JOIN EXISTING ROOM", style="font-weight:800; font-size:.9rem; letter-spacing:.05em;"),
-                        Div("Enter the 6-character code a friend sent you", style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
-                    ),
-                    style="display:flex; align-items:center; gap:.75rem; margin-bottom:1rem;",
-                ),
-                P(
-                    f"❌ {error}",
-                    style="color:var(--brand-red); margin:0 0 .75rem; font-size:.85rem;",
-                ) if error else "",
-                Form(
-                    Input(
-                        type="text",
-                        name="code",
-                        placeholder="e.g. WOLF42",
-                        maxlength=6,
-                        autocomplete="off",
-                        autocapitalize="characters",
-                        cls="room-code-input",
-                        style="width:100%; box-sizing:border-box; margin-bottom:.75rem;",
-                    ),
-                    Button("Enter Room →", type="submit", cls="btn-fight", style="width:100%;"),
-                    action="/room/enter",
-                    method="post",
-                ),
-                cls="card",
-                style="padding:1.25rem; flex:1; min-width:220px;",
+                *[
+                    A(
+                        Span(icon, style="font-size:1.15rem;"),
+                        Div(
+                            Div(name, style="font-size:.78rem; font-weight:700; letter-spacing:.04em;"),
+                            cls="pf-cat-text",
+                        ),
+                        href=f"/room/create?category={slug}&team_size=1",
+                        data_slug=slug,
+                        cls="pf-cat-card",
+                    )
+                    for slug, icon, name in _PRIVATE_CATEGORIES
+                ],
+                cls="pf-cat-grid",
             ),
-
-            style="display:flex; flex-wrap:wrap; gap:1.25rem; align-items:flex-start;",
+            id="panel-create",
+            cls="pf-panel",
         ),
 
-        A("← Back to Play", href="/play", cls="cat-back", style="margin-top:1rem; display:inline-block;"),
+        # ── JOIN panel ────────────────────────────────────────────────────────
+        Div(
+            P(f"❌ {error}",
+              style="color:var(--brand-red); margin:0 0 .85rem; font-size:.85rem;",
+            ) if error else "",
+            P("Ask your friend to share their room link or 6-character code.",
+              style="color:var(--brand-muted); font-size:.82rem; margin:0 0 1.1rem;"),
+            Form(
+                Input(
+                    type="text",
+                    name="code",
+                    placeholder="Enter code  e.g.  WOLF42",
+                    maxlength=6,
+                    autocomplete="off",
+                    autocapitalize="characters",
+                    cls="room-code-input",
+                    style="width:100%; box-sizing:border-box; margin-bottom:.75rem;",
+                ),
+                Button("Join Room →", type="submit", cls="btn-fight", style="width:100%;"),
+                action="/room/enter",
+                method="post",
+            ),
+            id="panel-join",
+            cls="pf-panel",
+            style="display:none;",
+        ),
+
+        A("← Back", href="/dashboard", cls="cat-back",
+          style="margin-top:1.25rem; display:inline-block;"),
 
         Script("""
 (function(){
+  /* ── Option toggle ───────────────────────────────────── */
+  window.selectOption = function(which) {
+    var isCreate = (which === 'create');
+    document.getElementById('opt-create').className =
+      'pf-option' + (isCreate ? ' pf-option--active' : '');
+    document.getElementById('opt-join').className =
+      'pf-option' + (!isCreate ? ' pf-option--active pf-option--join' : '');
+    document.getElementById('panel-create').style.display = isCreate ? '' : 'none';
+    document.getElementById('panel-join').style.display   = isCreate ? 'none' : '';
+  };
+
+  /* ── Team size ───────────────────────────────────────── */
   var currentSize = 1;
   var HINTS = {
-    1: 'Classic 1v1 — you vs one friend.',
-    2: '2v2 — two players per side, 4 total.',
-    3: '3v3 — three players per side, 6 total.',
+    1: '1v1 — you vs one friend  (2 players)',
+    2: '2v2 — two players per side  (4 total)',
+    3: '3v3 — three players per side  (6 total)',
   };
-  var ACTIVE_STYLE = (
-    'padding:.4rem .9rem; border-radius:6px; cursor:pointer;' +
-    'font-size:.75rem; font-weight:800; letter-spacing:.07em;' +
-    'border:1px solid var(--brand-cyan);' +
-    'background:rgba(5,217,232,.12); color:var(--brand-cyan);' +
-    'transition:all .15s;'
-  );
-  var IDLE_STYLE = (
-    'padding:.4rem .9rem; border-radius:6px; cursor:pointer;' +
-    'font-size:.75rem; font-weight:800; letter-spacing:.07em;' +
-    'border:1px solid rgba(255,255,255,.15);' +
-    'background:rgba(255,255,255,.04); color:var(--brand-muted);' +
-    'transition:all .15s;'
-  );
 
   window.setTeamSize = function(n) {
     currentSize = n;
     [1,2,3].forEach(function(i){
-      var btn = document.getElementById('ts-btn-'+i);
-      if(btn) btn.style.cssText = (i === n) ? ACTIVE_STYLE : IDLE_STYLE;
+      var b = document.getElementById('ts-btn-'+i);
+      if(!b) return;
+      b.className = 'pf-size-btn' + (i===n ? ' pf-size-btn--active' : '');
     });
     var hint = document.getElementById('team-size-hint');
     if(hint) hint.textContent = HINTS[n] || '';
-    document.querySelectorAll('.priv-cat-link').forEach(function(a){
+    document.querySelectorAll('.pf-cat-card').forEach(function(a){
       var slug = a.dataset.slug;
-      if(slug) a.href = '/room/create?category=' + slug + '&team_size=' + n;
+      if(slug) a.href = '/room/create?category='+slug+'&team_size='+n;
     });
   };
 

@@ -156,13 +156,13 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
                     href="/play",
                     cls="dash-mode-card",
                 ),
-                # Play with Friend
+                # Custom Room
                 A(
                     Div(
                         Div(
                             Span("🔗", cls="dash-mode-icon"),
                             Div(
-                                Div("PLAY WITH FRIEND", cls="dash-mode-name"),
+                                Div("CUSTOM ROOM", cls="dash-mode-name"),
                                 Div("Set teams · pick topic · invite", cls="dash-mode-sub"),
                                 cls="dash-mode-text",
                             ),

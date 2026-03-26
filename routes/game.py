@@ -16,7 +16,7 @@ from components.verdicts import verdict_component
 from pages.landing import landing_page
 from pages.category import category_page
 from pages.arena   import waiting_page, arena_page, submitted_view, submit_status_fragment
-from pages.room    import room_wait_page, join_room_page, team_slots_fragment
+from pages.room    import room_wait_page, join_room_page, team_slots_fragment, team_pick_page
 from routes.profile import generate_alias
 from services.cache import TTLCache
 
@@ -220,7 +220,7 @@ def setup_game_routes(rt, game_state):
         if not match:
             return RedirectResponse(f"/join-room?error=Room+{room_code}+not+found", status_code=303)
 
-        # Already in this room — show wait page (team match may need more players)
+        # Already in this room — back to wait page
         if username in match.all_players():
             _alias = req.session.get("alias") or username
             return layout(
@@ -228,7 +228,7 @@ def setup_game_routes(rt, game_state):
                                team_size=match.team_size,
                                team1_aliases=match.team_aliases(1),
                                team2_aliases=match.team_aliases(2)),
-                title="Private Room | Akobato",
+                title="Custom Room | Akobato",
                 user=username,
                 alias=_alias,
             )
@@ -240,34 +240,30 @@ def setup_game_routes(rt, game_state):
         if username in game_state.player_matches:
             return RedirectResponse(f"/join-room?error=You+are+already+in+a+match", status_code=303)
 
-        tokens = _fetch_tokens(username, game_state)
-        if tokens <= 0:
-            return RedirectResponse("/play?no_tokens=1", status_code=303)
-        _deduct_token(username, game_state)
-
-        user_alias = _lookup_alias(username, game_state)
-        team_num   = match.add_player(username, user_alias)
-        if team_num is None:
-            return RedirectResponse(f"/join-room?error=Room+{room_code}+is+full", status_code=303)
-
-        # Track all current room members
-        for p in match.all_players():
-            game_state.player_matches[p] = mid
-
-        # If room is now full, redirect this last joiner straight to the game
-        if match.is_full():
+        # For 1v1, skip the picker — only one spot available
+        if match.team_size == 1:
+            tokens = _fetch_tokens(username, game_state)
+            if tokens <= 0:
+                return RedirectResponse("/play?no_tokens=1", status_code=303)
+            _deduct_token(username, game_state)
+            user_alias = _lookup_alias(username, game_state)
+            match.add_player_to_team(username, user_alias, 2)
+            for p in match.all_players():
+                game_state.player_matches[p] = mid
             return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
 
-        # Room still needs more players — show wait page
-        _alias = req.session.get("alias") or username
+        # Team match — show team picker
+        my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
         return layout(
-            room_wait_page(room_code, username, prompt=match.prompt,
-                           team_size=match.team_size,
-                           team1_aliases=match.team_aliases(1),
-                           team2_aliases=match.team_aliases(2)),
-            title="Private Room | Akobato",
+            team_pick_page(
+                room_code=room_code, username=username, my_alias=my_alias,
+                prompt=match.prompt, team_size=match.team_size,
+                team1_aliases=match.team_aliases(1),
+                team2_aliases=match.team_aliases(2),
+            ),
+            title="Choose Team | Akobato",
             user=username,
-            alias=_alias,
+            alias=my_alias,
         )
 
     # ── Private room — live team slots (HTMX fragment) ────────────────────────
@@ -343,7 +339,7 @@ def setup_game_routes(rt, game_state):
         if not match:
             return RedirectResponse(f"/join-room?error=Room+{room_code}+not+found", status_code=303)
 
-        # Already in this room — redirect to game/wait page
+        # Already in this room — back to wait page
         if username in match.all_players():
             return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
 
@@ -354,15 +350,96 @@ def setup_game_routes(rt, game_state):
         if username in game_state.player_matches:
             return RedirectResponse(f"/join-room?error=You+are+already+in+a+match", status_code=303)
 
+        # For 1v1, auto-join — no team choice needed
+        if match.team_size == 1:
+            tokens = _fetch_tokens(username, game_state)
+            if tokens <= 0:
+                return RedirectResponse("/play?no_tokens=1", status_code=303)
+            _deduct_token(username, game_state)
+            user_alias = _lookup_alias(username, game_state)
+            match.add_player_to_team(username, user_alias, 2)
+            for p in match.all_players():
+                game_state.player_matches[p] = mid
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+
+        # Team match — show team picker
+        my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
+        return layout(
+            team_pick_page(
+                room_code=room_code, username=username, my_alias=my_alias,
+                prompt=match.prompt, team_size=match.team_size,
+                team1_aliases=match.team_aliases(1),
+                team2_aliases=match.team_aliases(2),
+            ),
+            title="Choose Team | Akobato",
+            user=username,
+            alias=my_alias,
+        )
+
+    # ── Team picker — confirm and join ───────────────────────────────────────
+
+    @rt("/room/pick-team", methods=["POST"])
+    async def post(req: Request):
+        username = req.session.get("username")
+        if not username:
+            return RedirectResponse("/login", status_code=303)
+
+        form      = await req.form()
+        room_code = (form.get("code")   or "").strip().upper()
+        team_str  = (form.get("team")   or "").strip()
+
+        try:
+            chosen_team = int(team_str)
+        except ValueError:
+            return RedirectResponse(f"/join-room?error=Invalid+team+selection", status_code=303)
+
+        mid   = game_state.rooms.get(room_code)
+        match = game_state.matches.get(mid) if mid else None
+
+        if not match:
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+not+found", status_code=303)
+        if username in match.all_players():
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+        if not match.team_has_space(chosen_team):
+            my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
+            return layout(
+                team_pick_page(
+                    room_code=room_code, username=username, my_alias=my_alias,
+                    prompt=match.prompt, team_size=match.team_size,
+                    team1_aliases=match.team_aliases(1),
+                    team2_aliases=match.team_aliases(2),
+                    error="That team is full — pick the other side.",
+                ),
+                title="Choose Team | Akobato",
+                user=username,
+                alias=my_alias,
+            )
+        if match.status != "waiting":
+            return RedirectResponse(f"/join-room?error=Room+already+started", status_code=303)
+        if username in game_state.player_matches:
+            return RedirectResponse(f"/join-room?error=You+are+already+in+a+match", status_code=303)
+
         tokens = _fetch_tokens(username, game_state)
         if tokens <= 0:
             return RedirectResponse("/play?no_tokens=1", status_code=303)
         _deduct_token(username, game_state)
 
         user_alias = _lookup_alias(username, game_state)
-        team_num   = match.add_player(username, user_alias)
-        if team_num is None:
-            return RedirectResponse(f"/join-room?error=Room+{room_code}+is+full", status_code=303)
+        ok = match.add_player_to_team(username, user_alias, chosen_team)
+        if not ok:
+            my_alias = req.session.get("alias") or user_alias
+            return layout(
+                team_pick_page(
+                    room_code=room_code, username=username, my_alias=my_alias,
+                    prompt=match.prompt, team_size=match.team_size,
+                    team1_aliases=match.team_aliases(1),
+                    team2_aliases=match.team_aliases(2),
+                    error="Could not join that team — please try again.",
+                ),
+                title="Choose Team | Akobato",
+                user=username,
+                alias=my_alias,
+            )
 
         for p in match.all_players():
             game_state.player_matches[p] = mid
@@ -370,14 +447,13 @@ def setup_game_routes(rt, game_state):
         if match.is_full():
             return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
 
-        # Room still needs more players
         _alias = req.session.get("alias") or username
         return layout(
             room_wait_page(room_code, username, prompt=match.prompt,
                            team_size=match.team_size,
                            team1_aliases=match.team_aliases(1),
                            team2_aliases=match.team_aliases(2)),
-            title="Private Room | Akobato",
+            title="Custom Room | Akobato",
             user=username,
             alias=_alias,
         )

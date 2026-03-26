@@ -12,246 +12,248 @@ CATEGORIES = [
     ("random",        "🎲", "SURPRISE ME",   "No prep. No excuses.",      "#FFC200"),
 ]
 
-_MODES = [
-    (
-        "versus",
-        "👥",
-        "QUICK MATCH",
-        "2 MIN",
-        "Random human opponent · matchmaking queue",
-        "#a371f7",
-        "/join",
-        "&mode=versus",
-    ),
-    (
-        "private",
-        "🔗",
-        "PLAY WITH FRIEND",
-        "2 MIN",
-        "Set teams · pick topic · invite",
-        "#05D9E8",
-        "/join-room",
-        "",
-    ),
-]
-
 
 def category_page(username: str, tokens: int = 5) -> FT:
     no_tokens = tokens <= 0
 
-    token_bar = Div(
-        Div(
-            Span("⚡", cls="cat-token-icon"),
-            Span(f"{tokens} / 5", cls="cat-token-count"),
-            Span("ENERGY", cls="cat-token-label"),
-            cls="cat-token-left",
-        ),
-        Div(
-            *[Span(cls=f"cat-token-pip {'cat-token-pip--on' if i < tokens else ''}", key=i)
-              for i in range(5)],
-            cls="cat-token-pips",
-        ),
-        cls=f"cat-token-bar {'cat-token-bar--empty' if no_tokens else ''}",
-    )
-
-    no_tokens_banner = Div(
-        Span("⚡", cls="cat-no-tokens-icon"),
-        Div(
-            Div("NO ENERGY", cls="cat-no-tokens-title"),
-            Div("Complete a match to restore energy.", cls="cat-no-tokens-sub"),
-            cls="cat-no-tokens-text",
-        ),
-        cls="cat-no-tokens-banner",
-    ) if no_tokens else ()
-
     return Div(
 
-        # ── Header ────────────────────────────────────────────────────────────
+        # ── Page title + energy ───────────────────────────────────────────────
         Div(
-            H1("Choose Your Arena", cls="cat-title", style="margin-bottom:.25rem;"),
-            token_bar,
-            cls="cat-header",
+            Div(
+                H1("Choose Your Arena", cls="wz-title"),
+                P("Two steps to your next battle.", cls="wz-subtitle"),
+            ),
+            # Energy pill
+            Div(
+                Span("⚡", style="font-size:.9rem;"),
+                Span(f"{tokens}/5", style="font-weight:900; font-size:.85rem;"),
+                Span("ENERGY", style=(
+                    "font-size:.6rem; font-weight:700; letter-spacing:.1em;"
+                    "color:var(--brand-muted); margin-left:.1rem;"
+                )),
+                *[Span(
+                    cls=f"wz-energy-pip {'wz-energy-pip--on' if i < tokens else ''}",
+                ) for i in range(5)],
+                cls=f"wz-energy {'wz-energy--empty' if no_tokens else ''}",
+            ),
+            cls="wz-header",
         ),
 
-        no_tokens_banner,
+        # ── No energy banner ──────────────────────────────────────────────────
+        (Div(
+            Span("⚡", style="font-size:1.2rem;"),
+            Div(
+                Div("NO ENERGY", style=(
+                    "font-size:.72rem; font-weight:900; letter-spacing:.12em;"
+                    "color:var(--brand-red);"
+                )),
+                Div("Finish a match to restore energy.",
+                    style="font-size:.78rem; color:var(--brand-muted); margin-top:.1rem;"),
+            ),
+            cls="wz-no-energy",
+        ) if no_tokens else ()),
+
+        # ── Wizard stepper ────────────────────────────────────────────────────
+        Div(
+            # Step 1
+            Div(
+                Div("1", cls="wz-step-num wz-step-num--active", id="step-num-1"),
+                Div(
+                    Div("GAME TYPE", cls="wz-step-label"),
+                    Div("Quick Match or Custom Room", cls="wz-step-sub"),
+                ),
+                cls="wz-step wz-step--active",
+                id="wz-step-1",
+            ),
+            # Connector
+            Div(cls="wz-connector", id="wz-connector"),
+            # Step 2
+            Div(
+                Div("2", cls="wz-step-num", id="step-num-2"),
+                Div(
+                    Div("PICK TOPIC", cls="wz-step-label"),
+                    Div("Choose your battlefield", cls="wz-step-sub"),
+                ),
+                cls="wz-step",
+                id="wz-step-2",
+            ),
+            cls="wz-stepper",
+        ),
 
         # ══ STEP 1 — Game Type ════════════════════════════════════════════════
         Div(
+            # Quick Match card
             Div(
-                Span("STEP 1", style=(
-                    "font-size:.65rem; font-weight:900; letter-spacing:.15em;"
-                    "color:var(--brand-cyan); background:rgba(5,217,232,.12);"
-                    "padding:.2rem .6rem; border-radius:4px;"
-                )),
-                Span("Choose Game Type", style=(
-                    "font-size:.9rem; font-weight:700; color:var(--fg); margin-left:.6rem;"
-                )),
-                style="display:flex; align-items:center; margin-bottom:.85rem;",
+                Div(
+                    Span("👥", cls="wz-mode-icon"),
+                    Div(
+                        Div("QUICK MATCH", cls="wz-mode-name"),
+                        Div("2 MIN", cls="wz-mode-dur", style="color:#a371f7;"),
+                        cls="wz-mode-meta",
+                    ),
+                    cls="wz-mode-top",
+                ),
+                Div("Random human opponent · matchmaking queue",
+                    cls="wz-mode-desc"),
+                Div(
+                    Div(cls="wz-mode-check-dot", style="background:#a371f7; box-shadow:0 0 6px #a371f7;"),
+                    Span("SELECTED", cls="wz-mode-check-label", style="color:#a371f7;"),
+                    cls="wz-mode-check",
+                ),
+                id="mode-versus",
+                cls="wz-mode-card wz-mode-card--active",
+                data_mode="versus",
+                onclick="pickMode('versus')",
             ),
-
-            Div(
-                *[_mode_card(slug, icon, label, dur, desc, color)
-                  for slug, icon, label, dur, desc, color, _, __ in _MODES],
-                cls="arena-modes",
-                id="mode-selector",
+            # Custom Room card — direct link, no Step 2 needed
+            A(
+                Div(
+                    Span("🔗", cls="wz-mode-icon"),
+                    Div(
+                        Div("CUSTOM ROOM", cls="wz-mode-name"),
+                        Div("2 MIN", cls="wz-mode-dur", style="color:#05D9E8;"),
+                        cls="wz-mode-meta",
+                    ),
+                    cls="wz-mode-top",
+                ),
+                Div("Set teams · pick topic · invite friends",
+                    cls="wz-mode-desc"),
+                href="/join-room",
+                id="mode-private",
+                cls="wz-mode-card",
+                data_mode="private",
             ),
-
-            style="margin-bottom:1.5rem;",
+            cls="wz-modes",
+            id="wz-panel-1",
         ),
 
         # ══ STEP 2 — Topic ════════════════════════════════════════════════════
         Div(
-            Div(
-                Span("STEP 2", style=(
-                    "font-size:.65rem; font-weight:900; letter-spacing:.15em;"
-                    "color:var(--brand-cyan); background:rgba(5,217,232,.12);"
-                    "padding:.2rem .6rem; border-radius:4px;"
-                )),
-                Span("Pick a Topic", style=(
-                    "font-size:.9rem; font-weight:700; color:var(--fg); margin-left:.6rem;"
-                )),
-                style="display:flex; align-items:center; margin-bottom:.75rem;",
-            ),
+            # Selected mode reminder banner
+            Div(id="wz-mode-banner", cls="wz-mode-banner"),
 
-            # Live mode summary banner
-            Div(id="mode-banner", style="margin-bottom:.85rem;"),
-
+            # Topic grid
             Div(
                 *[_cat_card(slug, icon, name, desc, color, disabled=no_tokens)
                   for slug, icon, name, desc, color in CATEGORIES],
-                cls="cat-grid",
-                id="cat-grid",
+                cls="wz-cat-grid",
+                id="wz-cat-grid",
             ),
 
-            style="margin-bottom:1.5rem;",
+            id="wz-panel-2",
+            cls="wz-panel-2",
         ),
 
-        A("← Dashboard", href="/dashboard", cls="cat-back"),
+        A("← Dashboard", href="/dashboard", cls="cat-back", style="margin-top:1rem;"),
 
         Script("""
 (function(){
+
   var MODE_META = {
-    versus:  {
-      icon:'👥', label:'QUICK MATCH',       dur:'2 MIN',
-      desc:'Random human opponent',         color:'#a371f7',
-      base:'/join',        qs:'&mode=versus'
-    },
-    private: {
-      icon:'🔗', label:'PLAY WITH FRIEND',  dur:'2 MIN',
-      desc:'Set teams · pick topic · invite', color:'#05D9E8',
-      base:'/join-room', qs:''
+    versus: {
+      icon:'👥', label:'QUICK MATCH', dur:'2 MIN',
+      desc:'Random human opponent',
+      color:'#a371f7',
+      base:'/join', qs:'&mode=versus'
     },
   };
 
-  var current = 'versus';
-
   function updateBanner(mode) {
     var m  = MODE_META[mode];
-    var el = document.getElementById('mode-banner');
-    if (!el) return;
-    el.innerHTML = [
-      '<div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;',
-      'background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);',
-      'border-left:3px solid '+m.color+';',
-      'border-radius:8px;padding:.65rem 1rem;font-size:.82rem;">',
-        '<span style="font-size:1.1rem">'+m.icon+'</span>',
-        '<strong style="color:'+m.color+';letter-spacing:.05em">'+m.label+'</strong>',
-        '<span style="background:'+m.color+'22;color:'+m.color+';font-size:.68rem;font-weight:700;',
-        'padding:.15rem .5rem;border-radius:4px;letter-spacing:.08em">'+m.dur+'</span>',
-        '<span style="color:var(--brand-muted)">'+m.desc+'</span>',
-        '<span style="margin-left:auto;color:var(--brand-muted);font-size:.75rem">',
-        '→ click a topic to start</span>',
-      '</div>',
-    ].join('');
+    var el = document.getElementById('wz-mode-banner');
+    if(!el || !m) return;
+    el.innerHTML =
+      '<span style="font-size:1rem">'+m.icon+'</span> ' +
+      '<strong style="color:'+m.color+';letter-spacing:.05em">'+m.label+'</strong>' +
+      '<span class="wz-dur-badge" style="background:'+m.color+'22;color:'+m.color+'">'+m.dur+'</span>' +
+      '<span style="color:var(--brand-muted);font-size:.8rem">'+m.desc+'</span>' +
+      '<span style="margin-left:auto;color:var(--brand-muted);font-size:.75rem">→ click a topic</span>';
+    el.style.borderLeftColor = m.color;
   }
 
   function updateCards(mode) {
     var m = MODE_META[mode];
-    document.querySelectorAll('.cat-card[data-slug]').forEach(function(a) {
-      if (a.classList.contains('cat-card--disabled')) return;
+    if(!m) return;
+    document.querySelectorAll('.wz-cat-card[data-slug]').forEach(function(a){
+      if(a.classList.contains('wz-cat-card--disabled')) return;
       a.href = m.base + '?category=' + a.dataset.slug + m.qs;
-      var badge = a.querySelector('.cat-mode-badge');
-      if (badge) {
-        badge.textContent = m.icon + ' ' + m.label + ' · ' + m.dur;
-        badge.style.color        = m.color;
-        badge.style.borderColor  = m.color + '55';
-        badge.style.background   = m.color + '11';
+      var badge = a.querySelector('.wz-cat-badge');
+      if(badge){
+        badge.textContent = m.icon + ' ' + m.label;
+        badge.style.color       = m.color;
+        badge.style.borderColor = m.color + '55';
+        badge.style.background  = m.color + '11';
       }
     });
   }
 
-  window.setMode = function(mode) {
-    current = mode;
-    document.querySelectorAll('.arena-mode-card').forEach(function(c) {
-      c.classList.toggle('arena-mode-card--active', c.dataset.mode === mode);
+  function revealStep2() {
+    var p2 = document.getElementById('wz-panel-2');
+    if(!p2) return;
+    p2.classList.add('wz-panel-2--visible');
+
+    // Advance stepper visuals
+    var s2 = document.getElementById('wz-step-2');
+    var n2 = document.getElementById('step-num-2');
+    var conn = document.getElementById('wz-connector');
+    if(s2)   s2.classList.add('wz-step--active');
+    if(n2)   n2.classList.add('wz-step-num--active');
+    if(conn) conn.classList.add('wz-connector--done');
+
+    // Scroll to step 2
+    setTimeout(function(){
+      p2.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 120);
+  }
+
+  window.pickMode = function(mode) {
+    // Update mode card highlight
+    document.querySelectorAll('.wz-mode-card').forEach(function(c){
+      c.classList.toggle('wz-mode-card--active', c.dataset.mode === mode);
     });
-    updateBanner(mode);
-    updateCards(mode);
+
+    if(MODE_META[mode]) {
+      updateBanner(mode);
+      updateCards(mode);
+      revealStep2();
+    }
   };
 
-  setMode('versus');
+  // Initialise: pre-select versus so Step 2 cards have correct hrefs
+  updateCards('versus');
+  // Step 2 starts hidden — only revealed after mode pick
 })();
 """),
 
-        cls="cat-page",
+        cls="wz-page",
     )
 
 
-def _mode_card(slug: str, icon: str, label: str, dur: str, desc: str, color: str) -> FT:
-    return Div(
-        Div(
-            Span(icon, style="font-size:1.5rem; line-height:1;"),
-            Div(
-                Div(label, style="font-weight:900; font-size:.85rem; letter-spacing:.06em;"),
-                Div(dur, style=(
-                    f"font-size:.68rem; font-weight:700; letter-spacing:.1em;"
-                    f"color:{color}; margin-top:.1rem;"
-                )),
-                style="display:flex; flex-direction:column;",
-            ),
-            style="display:flex; align-items:center; gap:.65rem; margin-bottom:.35rem;",
-        ),
-        Div(desc, style="font-size:.75rem; color:var(--brand-muted); line-height:1.3;"),
-        Div(
-            Div(style=(
-                f"width:8px; height:8px; border-radius:50%;"
-                f"background:{color}; box-shadow:0 0 6px {color};"
-            )),
-            Span("SELECTED", style=(
-                f"font-size:.6rem; font-weight:900; letter-spacing:.1em; color:{color};"
-            )),
-            cls="arena-mode-check",
-        ),
-        cls="arena-mode-card",
-        data_mode=slug,
-        onclick=f"setMode('{slug}')",
-    )
-
-
-def _cat_card(slug: str, icon: str, name: str, desc: str, color: str, disabled: bool = False) -> FT:
-    is_random = slug == "random"
-    extra_cls = " cat-card--random" if is_random else ""
-    extra_cls += " cat-card--disabled" if disabled else ""
+def _cat_card(slug: str, icon: str, name: str, desc: str,
+              color: str, disabled: bool = False) -> FT:
+    extra = " wz-cat-card--disabled" if disabled else ""
+    extra += " wz-cat-card--random"  if slug == "random" else ""
     return A(
-        Div(cls="cat-corner cat-tl"),
-        Div(cls="cat-corner cat-br"),
-        Span(icon, cls="cat-card-icon"),
-        Div(name, cls="cat-card-name", style=f"color:{color}"),
-        Div(desc, cls="cat-card-desc"),
+        Span(icon, cls="wz-cat-icon"),
+        Div(
+            Div(name, cls="wz-cat-name", style=f"color:{color}"),
+            Div(desc, cls="wz-cat-desc"),
+        ),
         Div(
             Span(
-                "👥 QUICK MATCH · 2 MIN",
-                cls="cat-mode-badge",
-                style="color:#a371f7; border:1px solid #a371f755; background:#a371f711;",
+                f"👥 QUICK MATCH",
+                cls="wz-cat-badge",
+                style=f"color:#a371f7; border:1px solid #a371f755; background:#a371f711;",
             ) if not disabled else Span(
                 "NO ENERGY",
-                style="color:var(--brand-red); font-size:.72rem; font-weight:700;",
+                style="color:var(--brand-red); font-size:.7rem; font-weight:700;",
             ),
-            Span("▶ START" if not disabled else "LOCKED", cls="cat-card-enter"),
-            cls="cat-card-footer",
+            Span("▶" if not disabled else "🔒", cls="wz-cat-arrow"),
+            cls="wz-cat-footer",
         ),
         href="#" if disabled else f"/join?category={slug}&mode=versus",
         data_slug=slug,
-        cls=f"cat-card{extra_cls}",
-        style=f"--cat-color:{color}",
+        cls=f"wz-cat-card{extra}",
+        style=f"--wz-color:{color}",
     )
