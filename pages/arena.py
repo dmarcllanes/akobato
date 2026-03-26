@@ -181,8 +181,7 @@ def submitted_view(username: str, match_id: str) -> FT:
             cls="status-waiting",
             style="margin-top: 0.5rem;",
         ),
-        id="submit-area",
-        # WebSocket script injected inline to activate after HTMX swap
+        # WebSocket script — must come before keyword args
         Script(f"""
 (function(){{
   var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -205,4 +204,5 @@ def submitted_view(username: str, match_id: str) -> FT:
   }};
 }})();
 """),
+        id="submit-area",
     )

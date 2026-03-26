@@ -15,7 +15,6 @@ POLL_INTERVAL = 0.3   # seconds between in-memory checks
 
 def setup_ws_routes(app, game_state):
 
-    @app.websocket_route("/ws/lobby/{username}")
     async def ws_lobby(websocket: WebSocket):
         username = websocket.path_params["username"]
         await websocket.accept()
@@ -38,7 +37,6 @@ def setup_ws_routes(app, game_state):
             except Exception:
                 pass
 
-    @app.websocket_route("/ws/arena/{match_id}/{username}")
     async def ws_arena(websocket: WebSocket):
         match_id = websocket.path_params["match_id"]
         username = websocket.path_params["username"]
@@ -52,7 +50,6 @@ def setup_ws_routes(app, game_state):
                 # Handle timeout: auto-submit empty argument
                 if match.is_expired():
                     match.submit(username, "")
-                    # Trigger judging if both submitted
                     from routes.game import _maybe_judge
                     await _maybe_judge(match, game_state)
                 if match.status == "complete" and match.verdict:
@@ -70,7 +67,6 @@ def setup_ws_routes(app, game_state):
             except Exception:
                 pass
 
-    @app.websocket_route("/ws/room/{room_code}/{username}")
     async def ws_room(websocket: WebSocket):
         room_code = websocket.path_params["room_code"]
         username  = websocket.path_params["username"]
@@ -96,3 +92,7 @@ def setup_ws_routes(app, game_state):
                 await websocket.close()
             except Exception:
                 pass
+
+    app.add_websocket_route("/ws/lobby/{username}",            ws_lobby)
+    app.add_websocket_route("/ws/arena/{match_id}/{username}", ws_arena)
+    app.add_websocket_route("/ws/room/{room_code}/{username}", ws_room)
