@@ -44,6 +44,7 @@ def layout(
         nav_right = Div(
             A("Dashboard",    href="/dashboard",   cls="nav-link"),
             A("Hall of Fame", href="/leaderboard", cls="nav-link"),
+            A("Burn Board",   href="/roast",       cls="nav-link"),
             A("Profile",      href="/profile",     cls="nav-link"),
             nav_user,
             nav_action,
@@ -52,6 +53,7 @@ def layout(
         mobile_menu = Div(
             A("Dashboard",    href="/dashboard",   cls="nav-link"),
             A("Hall of Fame", href="/leaderboard", cls="nav-link"),
+            A("Burn Board",   href="/roast",       cls="nav-link"),
             A("Profile",      href="/profile",     cls="nav-link"),
             nav_action,
             cls="nav-mobile-menu",
@@ -95,11 +97,13 @@ def layout(
     else:
         nav_right = Div(
             A("Hall of Fame", href="/leaderboard", cls="nav-link"),
+            A("Burn Board",   href="/roast",       cls="nav-link"),
             A("Sign in", href="/login", cls="nav-signin"),
             cls="nav-right",
         )
         mobile_menu = Div(
             A("Hall of Fame", href="/leaderboard", cls="nav-link"),
+            A("Burn Board",   href="/roast",       cls="nav-link"),
             A("Sign in", href="/login", cls="nav-signin nav-signin--mobile"),
             cls="nav-mobile-menu",
             id="nav-mobile-menu",

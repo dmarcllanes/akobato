@@ -8,11 +8,11 @@ def verdict_component(match: MatchState, username: str) -> FT:
     if v is None:
         return Div(P("Verdict loading...", cls="status-waiting"), id="submit-area")
 
-    # Resolve winner display name
+    # Resolve winner display name using aliases (anonymous to others)
     if v.winner == "Player 1":
-        winner_name = match.player1
+        winner_name = match.alias_of(match.player1)
     elif v.winner == "Player 2":
-        winner_name = match.player2 or "Player 2"
+        winner_name = match.alias_of(match.player2 or "")
     else:
         winner_name = "Nobody — it's a Tie!"
 
@@ -39,7 +39,7 @@ def verdict_component(match: MatchState, username: str) -> FT:
         if match.player_label(username) == "Player 1"
         else v.human_originality_score_p1
     )
-    opponent = match.opponent_of(username) or "Opponent"
+    opponent = match.opponent_alias_of(username)
 
     return Div(
         # Replace timer + form area with this full verdict card

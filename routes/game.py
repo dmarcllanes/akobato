@@ -86,6 +86,7 @@ def setup_game_routes(rt, game_state):
             match = game_state.matches.get(match_id)
             if match and match.status == "waiting":
                 match.start(username)
+                match.alias2 = _lookup_alias(username, game_state)
                 game_state.player_matches[username]     = match_id
                 game_state.player_matches[waiting_name] = match_id
                 game_state.waiting = None
@@ -97,6 +98,7 @@ def setup_game_routes(rt, game_state):
         match_id = str(uuid.uuid4())[:8]
         prompt   = await fetch_debate_prompt(category)
         match    = MatchState(match_id=match_id, prompt=prompt, player1=username)
+        match.alias1 = _lookup_alias(username, game_state)
         game_state.matches[match_id]        = match
         game_state.player_matches[username] = match_id
         game_state.waiting                  = (username, match_id)
@@ -107,11 +109,12 @@ def setup_game_routes(rt, game_state):
 
     @rt("/waiting/{username}")
     def get(req: Request, username: str):
+        my_alias = req.session.get("alias") or username
         return layout(
-            waiting_page(username),
+            waiting_page(my_alias),
             title="Finding Opponent... | Akobato",
             user=username,
-            alias=req.session.get("alias"),
+            alias=my_alias,
         )
 
     @rt("/lobby/cancel/{username}", methods=["POST"])
@@ -160,8 +163,9 @@ def setup_game_routes(rt, game_state):
                 user=player or None,
                 alias=_alias,
             )
+        my_alias = _alias or player or ""
         return layout(
-            arena_page(match, player),
+            arena_page(match, player, my_alias),
             title="Arena | Akobato",
             user=player or None,
             alias=_alias,
@@ -226,6 +230,10 @@ def _maybe_judge(match: MatchState, game_state) -> None:
     match.verdict = verdict
     match.status  = "complete"
     _save_to_db(match, game_state)
+    # Free both players so they can join a new match
+    for p in [match.player1, match.player2]:
+        if p:
+            game_state.player_matches.pop(p, None)
 
 
 def _save_to_db(match: MatchState, game_state) -> None:
@@ -283,6 +291,23 @@ def _save_to_db(match: MatchState, game_state) -> None:
                 pass
     except Exception:
         pass
+
+
+def _lookup_alias(username: str, game_state) -> str:
+    try:
+        db = game_state.db
+        if not db:
+            return username
+        result = (
+            db.table("players")
+            .select("alias")
+            .eq("username", username)
+            .single()
+            .execute()
+        )
+        return (result.data or {}).get("alias") or username
+    except Exception:
+        return username
 
 
 def _fetch_tokens(username: str, game_state) -> int:

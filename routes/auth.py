@@ -8,6 +8,8 @@ from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import RedirectResponse
 
+from routes.profile import generate_alias
+
 
 def _pkce_pair() -> tuple[str, str]:
     verifier = secrets.token_urlsafe(64)
@@ -88,6 +90,19 @@ def setup_auth_routes(rt, game_state):
                     {"username": username, "score": 0},
                     on_conflict="username",
                 ).execute()
+            except Exception:
+                pass
+
+            # Ensure alias exists — generate one on first login, reuse on return
+            try:
+                row = db.table("players").select("alias").eq("username", username).single().execute()
+                saved_alias = (row.data or {}).get("alias")
+                if saved_alias:
+                    req.session["alias"] = saved_alias
+                else:
+                    new_alias = generate_alias(username)
+                    db.table("players").update({"alias": new_alias}).eq("username", username).execute()
+                    req.session["alias"] = new_alias
             except Exception:
                 pass
 

@@ -57,15 +57,16 @@ def waiting_page(username: str) -> FT:
     )
 
 
-def arena_page(match: MatchState, username: str) -> FT:
+def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
     started_at_ms = int(match.started_at * 1000) if match.started_at else 0
-    opponent = match.opponent_of(username) or "???"
+    display_me  = my_alias or match.alias_of(username) or username
+    display_opp = match.opponent_alias_of(username)
 
     return Div(
         Div(
             H2("⚔️ The Arena", style="margin:0"),
             P(
-                f"{username}  vs  {opponent}",
+                f"{display_me}  vs  {display_opp}",
                 style="color: var(--brand-muted); margin: 0.25rem 0 0;",
             ),
             cls="arena-header",

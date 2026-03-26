@@ -19,6 +19,8 @@ class MatchState:
         self.prompt = prompt
         self.player1 = player1
         self.player2: Optional[str] = None
+        self.alias1: Optional[str] = None   # public display name for player1
+        self.alias2: Optional[str] = None   # public display name for player2
         self.argument1: Optional[str] = None
         self.argument2: Optional[str] = None
         self.status: str = "waiting"  # waiting | active | judging | complete
@@ -52,3 +54,15 @@ class MatchState:
 
     def opponent_of(self, username: str) -> Optional[str]:
         return self.player2 if username == self.player1 else self.player1
+
+    def alias_of(self, username: str) -> str:
+        """Returns the public alias for a player (falls back to username)."""
+        if username == self.player1:
+            return self.alias1 or username
+        return self.alias2 or username or "Player 2"
+
+    def opponent_alias_of(self, username: str) -> str:
+        """Returns the public alias of the opponent (falls back to username)."""
+        if username == self.player1:
+            return self.alias2 or self.player2 or "Opponent"
+        return self.alias1 or self.player1 or "Opponent"
