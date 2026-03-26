@@ -49,15 +49,6 @@ def room_wait_page(room_code: str, username: str) -> FT:
             style="margin-top:.5rem;",
         ),
 
-        # ── Hidden poll trigger ───────────────────────────────────────────────
-        Span(
-            id="poll-area",
-            hx_get=f"/room/check/{room_code}?player={username}",
-            hx_trigger="every 500ms",
-            hx_target="#poll-area",
-            hx_swap="outerHTML",
-        ),
-
         # ── Cancel ────────────────────────────────────────────────────────────
         Form(
             Button("✕  CANCEL ROOM", type="submit", cls="wt-cancel-btn"),
@@ -66,20 +57,50 @@ def room_wait_page(room_code: str, username: str) -> FT:
         ),
 
         # ── Scripts ───────────────────────────────────────────────────────────
-        Script("""
-(function(){
+        Script(f"""
+(function(){{
   // Elapsed timer
   var el = document.getElementById('wt-elapsed');
-  if(el){ var s=Date.now(); setInterval(function(){ var d=Math.floor((Date.now()-s)/1000); el.textContent=Math.floor(d/60)+':'+String(d%60).padStart(2,'0'); },1000); }
+  if(el){{
+    var s = Date.now();
+    setInterval(function(){{
+      var d = Math.floor((Date.now()-s)/1000);
+      el.textContent = Math.floor(d/60)+':'+String(d%60).padStart(2,'0');
+    }}, 1000);
+  }}
 
-  // Copy code
-  window.copyCode = function(code){
-    navigator.clipboard.writeText(code).then(function(){
+  // Copy code helper
+  window.copyCode = function(code){{
+    navigator.clipboard.writeText(code).then(function(){{
       var btn = document.getElementById('room-copy-btn');
-      if(btn){ btn.textContent='Copied!'; setTimeout(function(){ btn.textContent='Copy'; }, 2000); }
-    });
-  };
-})();
+      if(btn){{ btn.textContent='Copied!'; setTimeout(function(){{ btn.textContent='Copy'; }}, 2000); }}
+    }});
+  }};
+
+  // WebSocket for instant redirect when friend joins
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var ws = new WebSocket(proto + '//' + location.host + '/ws/room/{room_code}/{username}');
+  ws.onmessage = function(e){{
+    try {{
+      var data = JSON.parse(e.data);
+      if(data.action === 'redirect') window.location.href = data.url;
+      if(data.action === 'error') console.warn('WS room error:', data.msg);
+    }} catch(_) {{}}
+  }};
+  ws.onerror = function(){{
+    // Fallback: HTTP poll
+    setInterval(function(){{
+      fetch('/room/check/{room_code}?player={username}')
+        .then(function(r){{ return r.text(); }})
+        .then(function(html){{
+          if(html.indexOf('window.location') !== -1) {{
+            var m = html.match(/href\s*=\s*'([^']+)'/);
+            if(m) window.location.href = m[1];
+          }}
+        }});
+    }}, 1000);
+  }};
+}})();
 """),
 
         cls="wt-page",

@@ -76,9 +76,9 @@ def _fetch_leaderboard(game_state) -> list[dict]:
             .execute()
         )
         rows = result.data or []
-        # Show alias in leaderboard instead of real username
+        # Show alias in leaderboard instead of real username — never expose real username
         for r in rows:
-            r["username"] = r.get("alias") or r["username"]
+            r["username"] = r.get("alias") or "Fighter"
         return rows
     except Exception:
         return []

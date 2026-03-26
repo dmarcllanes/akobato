@@ -80,7 +80,7 @@ def _fetch_best_and_worst(game_state) -> tuple[list[dict], list[dict]]:
         usernames  = list({s["player"] for s in submissions if s["player"]})
         alias_map  = _fetch_aliases(usernames, db)
         for s in submissions:
-            s["alias"] = alias_map.get(s["player"]) or s["player"] or "Anonymous"
+            s["alias"] = alias_map.get(s["player"]) or "Anonymous"
 
         best  = sorted(submissions, key=lambda x: x["score"], reverse=True)[:5]
         worst = sorted(submissions, key=lambda x: x["score"])[:5]
@@ -101,7 +101,7 @@ def _fetch_aliases(usernames: list[str], db) -> dict[str, str]:
             .execute()
         )
         return {
-            r["username"]: r.get("alias") or r["username"]
+            r["username"]: r.get("alias") or "Anonymous"
             for r in (result.data or [])
         }
     except Exception:

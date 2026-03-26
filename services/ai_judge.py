@@ -73,8 +73,8 @@ async def judge_debate(
     client = Groq(api_key=groq_key)
     user_msg = (
         f"Debate Prompt: {prompt}\n\n"
-        f"Player 1 ({player1}): {arg1 or '(submitted nothing — coward)'}\n\n"
-        f"Player 2 ({player2}): {arg2 or '(submitted nothing — coward)'}\n\n"
+        f"Player 1: {arg1 or '(submitted nothing — coward)'}\n\n"
+        f"Player 2: {arg2 or '(submitted nothing — coward)'}\n\n"
         "Judge these arguments now."
     )
 

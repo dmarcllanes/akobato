@@ -124,7 +124,7 @@ def setup_game_routes(rt, game_state):
     def get(req: Request, username: str):
         my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
         return layout(
-            waiting_page(my_alias),
+            waiting_page(my_alias, username),
             title="Finding Opponent... | Akobato",
             user=username,
             alias=my_alias,
@@ -289,6 +289,14 @@ def setup_game_routes(rt, game_state):
                 user=player or None,
                 alias=_alias,
             )
+        # Show verdict directly if match is already complete
+        if match.status == "complete" and match.verdict:
+            return layout(
+                verdict_component(match, player),
+                title="Result | Akobato",
+                user=player or None,
+                alias=_alias,
+            )
         my_alias = _alias or match.alias_of(player) or _lookup_alias(player, game_state)
         return layout(
             arena_page(match, player, my_alias),
@@ -350,6 +358,10 @@ def setup_game_routes(rt, game_state):
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+# Guard against concurrent judging calls for the same match
+_judging_in_progress: set = set()
+
+
 async def _maybe_judge(match: MatchState, game_state) -> None:
     # Solo mode: generate bot counter-argument first
     if match.mode == "solo" and match.argument1 and match.argument2 is None:
@@ -358,18 +370,27 @@ async def _maybe_judge(match: MatchState, game_state) -> None:
 
     if match.status != "judging":
         return
-    verdict = await judge_debate(
-        prompt=match.prompt,
-        player1=match.player1,  arg1=match.argument1 or "",
-        player2=match.player2 or "Player 2", arg2=match.argument2 or "",
-    )
-    match.verdict = verdict
-    match.status  = "complete"
-    _save_to_db(match, game_state)
-    # Free both players so they can join a new match
-    for p in [match.player1, match.player2]:
-        if p:
-            game_state.player_matches.pop(p, None)
+
+    # Prevent duplicate judging calls for the same match
+    if match.match_id in _judging_in_progress:
+        return
+    _judging_in_progress.add(match.match_id)
+
+    try:
+        verdict = await judge_debate(
+            prompt=match.prompt,
+            player1=match.player1,  arg1=match.argument1 or "",
+            player2=match.player2 or "Player 2", arg2=match.argument2 or "",
+        )
+        match.verdict = verdict
+        match.status  = "complete"
+        _save_to_db(match, game_state)
+        # Free both players so they can join a new match
+        for p in [match.player1, match.player2]:
+            if p:
+                game_state.player_matches.pop(p, None)
+    finally:
+        _judging_in_progress.discard(match.match_id)
 
 
 def _save_to_db(match: MatchState, game_state) -> None:

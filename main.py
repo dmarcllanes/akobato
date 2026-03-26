@@ -78,6 +78,7 @@ from routes.game        import setup_game_routes
 from routes.leaderboard import setup_leaderboard_routes
 from routes.profile     import setup_profile_routes
 from routes.roast       import setup_roast_routes
+from routes.ws          import setup_ws_routes
 
 setup_auth_routes(rt, game_state)
 setup_dashboard_routes(rt, game_state)
@@ -85,6 +86,7 @@ setup_game_routes(rt, game_state)
 setup_leaderboard_routes(rt, game_state)
 setup_profile_routes(rt, game_state)
 setup_roast_routes(rt, game_state)
+setup_ws_routes(app, game_state)
 
 # ── Run ───────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
