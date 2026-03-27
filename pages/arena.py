@@ -98,11 +98,25 @@ def waiting_page(display_name: str, real_username: str) -> FT:
 
 
 def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
+    import time as _time
     started_at_ms = int(match.started_at * 1000) if match.started_at else 0
+    # Grace ms remaining at server render time (may already be 0 by the time client loads)
+    grace_ms      = max(0, started_at_ms - int(_time.time() * 1000))
     display_me  = my_alias or match.alias_of(username)
     display_opp = match.opponent_alias_of(username)
 
     return Div(
+
+        # ── GET READY overlay (shown during grace period only) ─────────────────
+        Div(
+            Div("MATCH STARTING", cls="ar-ov-label"),
+            Div("3", id="ar-ov-count", cls="ar-ov-count"),
+            Div("GET READY...", cls="ar-ov-sub"),
+            id="ar-ov",
+            cls="ar-ov",
+            style=("display:none;" if grace_ms <= 0 else ""),
+        ),
+
         Div(
             H2("⚔️ The Arena", style="margin:0"),
             P(
@@ -142,49 +156,87 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
 
         Script(f"""
 (function() {{
-  var startedAt = {started_at_ms};
+  var startedAt = {started_at_ms};   // ms — may be in the future during grace period
   var duration  = {match.duration * 1000};
+  var maxSec    = {match.duration};
   var timerEl   = document.getElementById('timer-val');
   var displayEl = document.getElementById('timer-display');
+  var ovEl      = document.getElementById('ar-ov');
+  var ovCount   = document.getElementById('ar-ov-count');
   var submitted = false;
   var lastSec   = -1;
-  var warned    = false;
+  var debateStarted = false;
 
-  // Play arena-start sound once on load
-  if(window.SFX) SFX.arenaStart();
+  // ── Grace-period overlay ──────────────────────────────────────────────
+  function updateOverlay() {{
+    var now  = Date.now();
+    var gr   = Math.ceil((startedAt - now) / 1000);  // seconds until debate starts
+    if (gr > 0) {{
+      if (ovEl)    ovEl.style.display = '';
+      if (ovCount) ovCount.textContent = gr;
+    }} else {{
+      if (!debateStarted) {{
+        debateStarted = true;
+        if (ovCount) ovCount.textContent = 'GO!';
+        if (window.SFX) SFX.arenaStart();
+        // Fade overlay out
+        if (ovEl) {{
+          ovEl.style.transition = 'opacity .4s';
+          ovEl.style.opacity = '0';
+          setTimeout(function() {{ if(ovEl) ovEl.style.display = 'none'; }}, 450);
+        }}
+        // Unlock form
+        var ta  = document.getElementById('argument-input');
+        var btn = document.getElementById('submit-btn');
+        if (ta)  ta.disabled  = false;
+        if (btn) btn.disabled = false;
+      }}
+    }}
+  }}
 
-  // Play submit sound + stop timer when form is submitted
+  // Lock form during grace period
+  var inGrace = Date.now() < startedAt;
+  if (inGrace) {{
+    var ta  = document.getElementById('argument-input');
+    var btn = document.getElementById('submit-btn');
+    if (ta)  ta.disabled  = true;
+    if (btn) btn.disabled = true;
+  }} else {{
+    if (window.SFX) SFX.arenaStart();
+    debateStarted = true;
+    if (ovEl) ovEl.style.display = 'none';
+  }}
+
+  // ── Debate timer ──────────────────────────────────────────────────────
   var form = document.getElementById('debate-form');
-  if(form) {{
+  if (form) {{
     form.addEventListener('submit', function() {{
       submitted = true;
-      if(window.SFX) SFX.submit();
+      if (window.SFX) SFX.submit();
     }});
   }}
 
   function tick() {{
-    if(submitted) return;
-    var remaining = Math.max(0, Math.ceil((startedAt + duration - Date.now()) / 1000));
-    if(timerEl)   timerEl.textContent = remaining;
-    if(remaining <= 10 && displayEl) displayEl.classList.add('timer-low');
+    updateOverlay();
+    if (submitted) return;
+    // Clamp elapsed to 0 during grace period so timer stays at max
+    var elapsed   = Math.max(0, Date.now() - startedAt);
+    var remaining = Math.max(0, Math.min(maxSec, Math.ceil((duration - elapsed) / 1000)));
+    if (timerEl)   timerEl.textContent = remaining;
+    if (remaining <= 10 && displayEl) displayEl.classList.add('timer-low');
 
-    // Sound effects (fire once per second change)
-    if(remaining !== lastSec) {{
+    if (remaining !== lastSec && debateStarted) {{
       lastSec = remaining;
-      if(window.SFX) {{
-        if(remaining === 0) {{
-          SFX.timerEnd();
-        }} else if(remaining <= 10) {{
-          SFX.warning();
-        }} else {{
-          SFX.tick();
-        }}
+      if (window.SFX) {{
+        if      (remaining === 0)  SFX.timerEnd();
+        else if (remaining <= 10)  SFX.warning();
+        else                       SFX.tick();
       }}
     }}
 
-    if(remaining === 0) {{
+    if (remaining === 0 && debateStarted) {{
       submitted = true;
-      if(form) htmx.trigger(form, 'submit');
+      if (form) htmx.trigger(form, 'submit');
     }}
   }}
 

@@ -202,4 +202,57 @@ def landing_page() -> FT:
         ),
 
         Script(src="/static/js/landing.js"),
+
+        # ── Sound effects ─────────────────────────────────────────────────────
+        Script("""
+(function(){
+  // Boot sound — once, on very first interaction
+  var booted = false;
+  function tryBoot() {
+    if (booted || !window.SFX) return;
+    booted = true;
+    SFX.boot();
+  }
+  document.addEventListener('mousemove', tryBoot, { passive: true, once: true });
+  document.addEventListener('touchstart', tryBoot, { passive: true, once: true });
+
+  // Hero countdown timer — tick / warning via MutationObserver
+  var timerEl = document.getElementById('hero-timer');
+  if (timerEl) {
+    var lastTimerVal = -1;
+    new MutationObserver(function() {
+      var v = parseInt(timerEl.textContent, 10);
+      if (isNaN(v) || v === lastTimerVal || !window.SFX) return;
+      lastTimerVal = v;
+      if (v <= 10) SFX.warning();
+      else         SFX.tick();
+    }).observe(timerEl, { childList: true, characterData: true, subtree: true });
+  }
+
+  // Typewriter — key sound per added character
+  var twEl = document.getElementById('typewriter-text');
+  if (twEl) {
+    var prevLen = 0;
+    new MutationObserver(function() {
+      var len = twEl.textContent.length;
+      if (len > prevLen && window.SFX) SFX.type();
+      prevLen = len;
+    }).observe(twEl, { childList: true, characterData: true, subtree: true });
+  }
+
+  // Scroll-reveal cards — blip once when they enter viewport
+  var cards = document.querySelectorAll('.lp-arcade-card, .lp-token-card');
+  if (cards.length && window.IntersectionObserver) {
+    var io = new IntersectionObserver(function(entries) {
+      entries.forEach(function(e) {
+        if (e.isIntersecting) {
+          if (window.SFX) SFX.reveal();
+          io.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.25 });
+    cards.forEach(function(c) { io.observe(c); });
+  }
+})();
+"""),
     )

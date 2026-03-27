@@ -161,6 +161,45 @@
       node ('square', 900, t + 0.15, 0.12, 0.14);
     },
 
+    /* Arcade boot / coin-insert — landing & login page intro */
+    boot: function () {
+      var t = ctx().currentTime;
+      // Descending coin-ping
+      sweep('sine', 1400, 500, t, 0.09, 0.22);
+      noise(t + 0.06, 0.04, 0.07);
+      // Rising power-up sweep
+      sweep('sawtooth', 90, 1600, t + 0.12, 0.38, 0.16);
+      sweep('sawtooth', 120, 800,  t + 0.18, 0.28, 0.08);
+      // Confirmation arpeggio
+      [440, 554, 659, 880].forEach(function (f, i) {
+        node('square', f, t + 0.52 + i * 0.07, 0.065, 0.16);
+      });
+    },
+
+    /* Big dramatic CTA press — "PRESS START" energy */
+    enter: function () {
+      var t = ctx().currentTime;
+      noise(t, 0.06, 0.07);
+      sweep('sawtooth', 120, 1100, t + 0.02, 0.22, 0.26);
+      node ('square',   1100, t + 0.22, 0.18, 0.22);
+      node ('square',   1320, t + 0.34, 0.14, 0.18);
+      node ('sine',     660,  t + 0.42, 0.22, 0.14);
+    },
+
+    /* Card reveal — soft blip as element scrolls into view */
+    reveal: function () {
+      var t = ctx().currentTime;
+      sweep('sine', 280, 560, t,        0.11, 0.09);
+      node ('sine',  560, t + 0.1, 0.07, 0.07);
+    },
+
+    /* Typewriter key — ultra-short mechanical tap */
+    type: function () {
+      var t = ctx().currentTime;
+      noise(t, 0.013, 0.055);
+      node('square', 2800, t, 0.010, 0.04);
+    },
+
   };
 
   /* ── Global interaction sounds ─────────────────────────────────────── */
@@ -179,6 +218,10 @@
     // Token-spending actions — coin sound
     if (el.closest('[data-sfx="token"]')) {
       SFX.token(); return;
+    }
+    // Major CTA buttons — dramatic enter sound
+    if (el.closest('.lp-cta-btn, .login-google-btn')) {
+      SFX.enter(); return;
     }
     // Anything button-like
     if (el.closest('button, [role="button"], .btn, .dm-card, .rl-card, .ar-btn, .tp-btn, .cat-card, .pf-cat-card')) {

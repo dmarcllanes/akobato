@@ -90,6 +90,25 @@ def login_page(error: str = "") -> FT:
             cls="login-wrap",
         ),
 
+        # ── Sound effects ─────────────────────────────────────────────────────
+        Script("""
+(function(){
+  // Boot sound once — plays when user first touches the login card
+  var booted = false;
+  function tryBoot() {
+    if (booted || !window.SFX) return;
+    booted = true;
+    SFX.boot();
+  }
+  var card = document.querySelector('.login-card');
+  if (card) {
+    card.addEventListener('mouseenter', tryBoot, { once: true });
+    card.addEventListener('touchstart', tryBoot, { passive: true, once: true });
+  }
+  document.addEventListener('touchstart', tryBoot, { passive: true, once: true });
+})();
+"""),
+
         Script("""
 (function(){
   // Mini particle canvas for login bg

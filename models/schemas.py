@@ -11,7 +11,8 @@ class JudgeVerdict(BaseModel):
     winning_quote: str
 
 
-DURATIONS = {"versus": 120, "private": 120}
+DURATIONS            = {"versus": 120, "private": 120}
+PRIVATE_ROOM_GRACE   = 3   # seconds both players get to reach the arena before timer starts
 BOT_NAME  = "AkobatoBot"
 BOT_ALIAS = "🤖 Akobato AI"
 
@@ -133,8 +134,9 @@ class MatchState:
         else:
             return None
         if self.is_full():
-            self.status     = "active"
-            self.started_at = time.time()
+            self.status = "active"
+            grace = PRIVATE_ROOM_GRACE if self.mode == "private" else 0
+            self.started_at = time.time() + grace
         return team
 
     def team_has_space(self, team: int) -> bool:
@@ -159,8 +161,11 @@ class MatchState:
         else:
             return False
         if self.is_full():
-            self.status     = "active"
-            self.started_at = time.time()
+            self.status = "active"
+            # Grace period: private rooms get extra seconds so both players
+            # can reach the arena before the debate timer starts.
+            grace = PRIVATE_ROOM_GRACE if self.mode == "private" else 0
+            self.started_at = time.time() + grace
         return True
 
     def is_full(self) -> bool:
