@@ -3333,6 +3333,18 @@ a:hover { color: var(--cyan); }
   box-shadow: 0 0 16px color-mix(in srgb, var(--tp-btn-glow, #05D9E8) 30%, transparent);
 }
 
+/* Lobby: player's own team gets a glow, other team is dimmed */
+.tp-team--joined {
+  border-color: var(--tp-color, #05D9E8) !important;
+  background: color-mix(in srgb, var(--tp-color, #05D9E8) 6%, transparent) !important;
+  box-shadow: 0 0 0 1px var(--tp-color, #05D9E8),
+              0 0 20px color-mix(in srgb, var(--tp-color, #05D9E8) 18%, transparent);
+}
+.tp-team--other {
+  opacity: .55;
+  filter: saturate(.4);
+}
+
 /* Selectable category card state */
 .pf-cat-card {
   cursor: pointer;

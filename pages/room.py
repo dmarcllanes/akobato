@@ -426,6 +426,294 @@ def team_slots_fragment(room_code: str, team_size: int,
     )
 
 
+def room_teams_live_fragment(
+    room_code: str, username: str, team_size: int,
+    team1_aliases: list, team2_aliases: list,
+    joined_team=None,
+) -> FT:
+    """
+    HTMX-refreshable two-team section.
+    joined_team=None  → show JOIN buttons (player hasn't chosen a side yet).
+    joined_team=1 or 2 → show 'YOU'RE HERE' badge on the player's team.
+    """
+    players_joined = len(team1_aliases) + len(team2_aliases)
+    players_needed = team_size * 2
+
+    def _slot(alias=None) -> FT:
+        if alias:
+            return Div(
+                Span("✓", style="color:var(--brand-cyan); font-weight:900; margin-right:.4rem;"),
+                Span(alias, style="font-weight:700;"),
+                cls="tp-slot tp-slot--filled",
+            )
+        return Div(
+            Span("···", style="color:var(--brand-muted); margin-right:.4rem;"),
+            Span("Waiting...", style="color:var(--brand-muted); font-style:italic;"),
+            cls="tp-slot tp-slot--empty",
+        )
+
+    def _panel(team_num: int, aliases: list, color: str, label: str) -> FT:
+        is_mine = (joined_team == team_num)
+        is_other = (joined_team is not None and not is_mine)
+        is_full = len(aliases) >= team_size
+
+        slots = [_slot(a) for a in aliases] + [_slot() for _ in range(team_size - len(aliases))]
+
+        if joined_team is None:
+            action = (
+                Button(
+                    f"JOIN {label} →",
+                    type="submit", name="team", value=str(team_num),
+                    cls="tp-join-btn",
+                    style=f"border-color:{color}; color:{color}; --tp-btn-glow:{color};",
+                ) if not is_full else Div(
+                    "FULL",
+                    style=(
+                        "text-align:center; font-size:.7rem; font-weight:900;"
+                        "letter-spacing:.12em; color:var(--brand-muted);"
+                        "padding:.5rem; border:1px solid rgba(255,255,255,.1);"
+                        "border-radius:8px;"
+                    ),
+                )
+            )
+        elif is_mine:
+            action = Div(
+                "◀ YOU'RE HERE",
+                style=(
+                    f"text-align:center; font-size:.68rem; font-weight:900;"
+                    f"letter-spacing:.1em; color:{color}; padding:.45rem;"
+                    f"border:1px solid {color}44; border-radius:8px;"
+                    f"background:{color}11; margin-top:.25rem;"
+                ),
+            )
+        else:
+            action = ()
+
+        panel_cls = "tp-team"
+        if is_mine:
+            panel_cls += " tp-team--joined"
+        elif is_other:
+            panel_cls += " tp-team--other"
+
+        return Div(
+            Div(label, cls="tp-team-label", style=f"color:{color};"),
+            Div(*slots, cls="tp-slots"),
+            action,
+            cls=panel_cls,
+            style=f"--tp-color:{color};",
+        )
+
+    grid = Div(
+        _panel(1, team1_aliases, "#05D9E8", "TEAM A"),
+        Div("VS", cls="tp-vs"),
+        _panel(2, team2_aliases, "#a371f7", "TEAM B"),
+        cls="tp-grid",
+    )
+
+    count_el = Div(
+        Span(
+            f"{players_joined} / {players_needed} players joined",
+            style="font-size:.78rem; color:var(--brand-muted); font-weight:600;",
+        ),
+        style="text-align:center; margin-top:.75rem; margin-bottom:.5rem;",
+    )
+
+    if joined_team is None:
+        inner = Form(
+            Input(type="hidden", name="player", value=username),
+            Input(type="hidden", name="code",   value=room_code),
+            grid,
+            count_el,
+            action="/room/pick-team",
+            method="post",
+        )
+    else:
+        inner = Div(grid, count_el)
+
+    return Div(
+        inner,
+        id="rl-teams-section",
+        hx_get=f"/room/teams/{room_code}?username={username}",
+        hx_trigger="every 2000ms",
+        hx_target="#rl-teams-section",
+        hx_swap="outerHTML",
+    )
+
+
+def room_lobby_page(
+    room_code: str, username: str, team_size: int,
+    team1_aliases: list, team2_aliases: list,
+    joined_team=None,
+    is_host: bool = False,
+) -> FT:
+    """
+    Unified lobby for 2v2 / 3v3 custom rooms.
+    Works for both the host (joined_team=1) and joining players (joined_team=None until they pick).
+    """
+    players_joined = len(team1_aliases) + len(team2_aliases)
+    players_needed = team_size * 2
+    is_joined = joined_team is not None
+    is_full   = players_joined >= players_needed
+    size_label = f"{team_size}v{team_size}"
+
+    title_text = (
+        "All Players Ready!" if is_full and is_joined else
+        "Waiting for Players" if is_joined else
+        "Choose Your Side"
+    )
+    sub_text = (
+        f"You're on {'Team A' if joined_team == 1 else 'Team B'} · waiting for the room to fill"
+        if is_joined and not is_full else
+        f"Match starting soon!" if is_full and is_joined else
+        f"{size_label} — pick a team to enter the room"
+    )
+
+    return Div(
+
+        # Header
+        Div(
+            Div("// CUSTOM_ROOM.EXE", cls="wt-sys-label"),
+            H1(title_text, cls="wt-title"),
+            P(sub_text, style="font-size:.78rem; color:var(--brand-muted); margin:.2rem 0 0;"),
+            cls="wt-info",
+            style="margin-bottom:1.25rem;",
+        ),
+
+        # Topic hidden banner
+        Div(
+            Span("🔒", style="font-size:1rem; margin-right:.4rem;"),
+            Span("Topic revealed when all players join",
+                 style="font-size:.78rem; color:var(--brand-muted);"),
+            style=(
+                "background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.1);"
+                "border-radius:8px; padding:.65rem 1rem; margin-bottom:1.25rem; text-align:center;"
+            ),
+        ),
+
+        # Live team panels (HTMX-refreshed)
+        room_teams_live_fragment(
+            room_code, username, team_size,
+            team1_aliases, team2_aliases, joined_team,
+        ),
+
+        # Share link (host / joined players)
+        (Div(
+            Div(
+                "SHARE THIS LINK WITH YOUR TEAM",
+                style="font-size:.7rem; letter-spacing:.1em; color:var(--brand-muted); font-weight:700; margin-bottom:.6rem;",
+            ),
+            Div(
+                Span(id="share-url", cls="wt-share-url"),
+                Button("📋 Copy Link", id="copy-link-btn", type="button",
+                       onclick="copyLink()", cls="wt-copy-btn"),
+                cls="wt-share-row",
+            ),
+            style="margin-bottom:.85rem;",
+        ) if is_joined else ()),
+
+        # Room code (always visible — useful for sharing manually)
+        Div(
+            Span("Room code: ", style="color:var(--brand-muted); font-size:.8rem;"),
+            Span(room_code, style=(
+                "font-size:1.1rem; font-weight:900; letter-spacing:.15em;"
+                "color:var(--brand-cyan); font-family:inherit;"
+            )),
+            style="text-align:center; margin-bottom:1.25rem;",
+        ),
+
+        # Waiting animation (joined, not full)
+        (Div(
+            Div(
+                Span(cls="wt-dot"), Span(cls="wt-dot"), Span(cls="wt-dot"),
+                cls="wt-dots",
+            ),
+            Div(
+                Span("Waiting for players", cls="wt-search-label"),
+                Span("0:00", id="wt-elapsed", cls="wt-elapsed"),
+                cls="wt-search-row",
+            ),
+            cls="wt-searching",
+        ) if is_joined and not is_full else ()),
+
+        # All ready banner (full)
+        (Div(
+            Div("⚔", style="font-size:2rem; margin-bottom:.5rem;"),
+            Div("ALL PLAYERS READY", style=(
+                "font-size:.8rem; font-weight:900; letter-spacing:.12em;"
+                "color:#3fb950; margin-bottom:.3rem;"
+            )),
+            Div("Match starting...", style="font-size:.82rem; color:var(--brand-muted);"),
+            style=(
+                "text-align:center; padding:1.25rem;"
+                "background:rgba(63,185,80,.06); border:1px solid rgba(63,185,80,.25);"
+                "border-radius:10px;"
+            ),
+        ) if is_full else ()),
+
+        # Cancel — host only, not yet full
+        (Form(
+            Button("✕  CANCEL", type="submit", cls="wt-cancel-btn"),
+            action=f"/room/cancel/{room_code}?player={username}",
+            method="post",
+            style="margin-top:1rem;",
+        ) if is_host and not is_full else ()),
+
+        # Scripts
+        Script(f"""
+(function(){{
+  var joinUrl = location.origin + '/r/{room_code}';
+  var urlEl   = document.getElementById('share-url');
+  if(urlEl) urlEl.textContent = joinUrl;
+  window.copyLink = function(){{
+    navigator.clipboard.writeText(joinUrl).then(function(){{
+      var btn = document.getElementById('copy-link-btn');
+      if(btn){{
+        btn.textContent = '✅ Copied!';
+        setTimeout(function(){{ btn.textContent = '📋 Copy Link'; }}, 2500);
+      }}
+    }});
+  }};
+}})();
+"""),
+        *([ Script(f"""
+(function(){{
+  var el = document.getElementById('wt-elapsed');
+  if(el){{
+    var s = Date.now();
+    setInterval(function(){{
+      var d = Math.floor((Date.now()-s)/1000);
+      el.textContent = Math.floor(d/60)+':'+String(d%60).padStart(2,'0');
+    }}, 1000);
+  }}
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var ws = new WebSocket(proto + '//' + location.host + '/ws/room/{room_code}/{username}');
+  ws.onmessage = function(e){{
+    try {{
+      var data = JSON.parse(e.data);
+      if(data.action === 'redirect') window.location.href = data.url;
+    }} catch(_) {{}}
+  }};
+  ws.onerror = function(){{
+    setInterval(function(){{
+      fetch('/room/check/{room_code}?player={username}')
+        .then(function(r){{ return r.text(); }})
+        .then(function(html){{
+          if(html.indexOf('window.location') !== -1) {{
+            var m = html.match(/href='([^']+)'/);
+            if(m) window.location.href = m[1];
+          }}
+        }});
+    }}, 1000);
+  }};
+}})();
+""") ] if is_joined else []),
+
+        A("← Back", href="/join-room", cls="cat-back", style="margin-top:1rem;"),
+
+        cls="wt-page",
+    )
+
+
 _PRIVATE_CATEGORIES = [
     ("random",        "🎲", "SURPRISE ME",   "No prep. No excuses.",        "#FFC200"),
     ("world",         "🌍", "WORLD NEWS",     "Live breaking headlines",     "#05D9E8"),

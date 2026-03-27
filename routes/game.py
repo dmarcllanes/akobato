@@ -16,7 +16,7 @@ from components.verdicts import verdict_component
 from pages.landing import landing_page
 from pages.category import category_page
 from pages.arena   import waiting_page, arena_page, submitted_view, submit_status_fragment
-from pages.room    import room_wait_page, join_room_page, team_slots_fragment, team_pick_page, room_list_fragment, ROOM_PAGE_SIZE
+from pages.room    import room_wait_page, join_room_page, team_slots_fragment, team_pick_page, room_list_fragment, ROOM_PAGE_SIZE, room_lobby_page, room_teams_live_fragment
 from routes.profile import generate_alias
 from services.cache import TTLCache
 
@@ -193,6 +193,10 @@ def setup_game_routes(rt, game_state):
         game_state.player_matches[username] = match_id
         game_state.rooms[room_code]         = match_id
 
+        # Team match → unified lobby where everyone picks a side
+        if match.team_size > 1:
+            return RedirectResponse(f"/room/lobby/{room_code}", status_code=303)
+
         _alias = req.session.get("alias") or username
         return layout(
             room_wait_page(room_code, username, prompt=prompt,
@@ -263,28 +267,28 @@ def setup_game_routes(rt, game_state):
                 alias=_alias,
             )
 
-        # Team match — show team picker
-        my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
-        return layout(
-            team_pick_page(
-                room_code=room_code, username=username, my_alias=my_alias,
-                prompt=match.prompt, team_size=match.team_size,
-                team1_aliases=match.team_aliases(1),
-                team2_aliases=match.team_aliases(2),
-            ),
-            title="Choose Team | Akobato",
-            user=username,
-            alias=my_alias,
-        )
+        # Team match — go to unified lobby (player picks side there)
+        return RedirectResponse(f"/room/lobby/{room_code}", status_code=303)
 
     # ── Private room — live team slots (HTMX fragment) ────────────────────────
 
     @rt("/room/teams/{room_code}")
-    def get(room_code: str):
+    def get(room_code: str, username: str = ""):
         mid   = game_state.rooms.get(room_code)
         match = game_state.matches.get(mid) if mid else None
         if not match:
-            return Div("Room expired", id="wt-team-slots")
+            return Div("Room expired", id="rl-teams-section")
+        # Team match → return the rich lobby fragment with join buttons
+        if match.team_size > 1:
+            joined_team = match.player_team(username) if username else None
+            return room_teams_live_fragment(
+                room_code, username,
+                match.team_size,
+                match.team_aliases(1),
+                match.team_aliases(2),
+                joined_team=joined_team,
+            )
+        # 1v1 → return the simple slot display (used by room_wait_page)
         return team_slots_fragment(
             room_code,
             match.team_size,
@@ -409,19 +413,8 @@ def setup_game_routes(rt, game_state):
                 alias=_alias,
             )
 
-        # Team match — show team picker
-        my_alias = req.session.get("alias") or _lookup_alias(username, game_state)
-        return layout(
-            team_pick_page(
-                room_code=room_code, username=username, my_alias=my_alias,
-                prompt=match.prompt, team_size=match.team_size,
-                team1_aliases=match.team_aliases(1),
-                team2_aliases=match.team_aliases(2),
-            ),
-            title="Choose Team | Akobato",
-            user=username,
-            alias=my_alias,
-        )
+        # Team match — go to unified lobby (player picks side there)
+        return RedirectResponse(f"/room/lobby/{room_code}", status_code=303)
 
     # ── Team picker — confirm and join ───────────────────────────────────────
 
@@ -492,12 +485,53 @@ def setup_game_routes(rt, game_state):
             game_state.player_matches[p] = mid
 
         # Always go to wait page — WebSocket redirects everyone into the game together
-        _alias = req.session.get("alias") or username
+        # Always go back to unified lobby so player sees live team state
+        return RedirectResponse(f"/room/lobby/{room_code}", status_code=303)
+
+    # ── Unified room lobby (team matches) ─────────────────────────────────────
+
+    @rt("/room/lobby/{room_code}")
+    def get(req: Request, room_code: str):
+        username = req.session.get("username")
+        if not username:
+            return RedirectResponse("/login", status_code=303)
+
+        mid   = game_state.rooms.get(room_code)
+        match = game_state.matches.get(mid) if mid else None
+
+        if not match:
+            return RedirectResponse(f"/join-room?error=Room+{room_code}+not+found", status_code=303)
+
+        # Match already active — send into the game
+        if match.status != "waiting" and username in match.all_players():
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+
+        joined_team = match.player_team(username)   # None if not yet on a team
+        is_host     = (match.player1 == username)
+        _alias      = req.session.get("alias") or username
+
+        # 1v1 that already has someone in it — use wait page
+        if match.team_size == 1:
+            return layout(
+                room_wait_page(room_code, username, prompt=match.prompt,
+                               team_size=match.team_size,
+                               team1_aliases=match.team_aliases(1),
+                               team2_aliases=match.team_aliases(2)),
+                title="Custom Room | Akobato",
+                user=username,
+                alias=_alias,
+            )
+
         return layout(
-            room_wait_page(room_code, username, prompt=match.prompt,
-                           team_size=match.team_size,
-                           team1_aliases=match.team_aliases(1),
-                           team2_aliases=match.team_aliases(2)),
+            room_lobby_page(
+                room_code=room_code,
+                username=username,
+                team_size=match.team_size,
+                team1_aliases=match.team_aliases(1),
+                team2_aliases=match.team_aliases(2),
+                joined_team=joined_team,
+                is_host=is_host,
+            ),
             title="Custom Room | Akobato",
             user=username,
             alias=_alias,
