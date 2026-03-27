@@ -2231,7 +2231,14 @@ a:hover { color: var(--cyan); }
 .cat-card:hover .cat-card-cost { color: rgba(255,194,0,0.8); }
 
 /* Token stat on dashboard */
+.stat-tokens        { color: #FFC200; }
 .stat-tokens--empty { color: #FF2A6D !important; }
+
+/* Gold glow on the 🪙 icon inside the token stat card */
+.dash-stat-card:has(.stat-tokens) .dash-stat-icon,
+.dash-stat-card:has(.stat-tokens--empty) .dash-stat-icon {
+  filter: drop-shadow(0 0 6px rgba(255,194,0,.8));
+}
 
 /* Responsive */
 @media (max-width: 768px) {

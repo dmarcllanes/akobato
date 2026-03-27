@@ -97,11 +97,14 @@ def _fetch_top_players(game_state) -> list:
             return []
         result = (
             db.table("players")
-            .select("username, score, wins, losses, ties")
+            .select("username, alias, score, wins, losses, ties")
             .order("score", desc=True)
             .limit(5)
             .execute()
         )
-        return result.data or []
+        rows = result.data or []
+        for r in rows:
+            r["username"] = r.get("alias") or r.get("username") or "Fighter"
+        return rows
     except Exception:
         return []
