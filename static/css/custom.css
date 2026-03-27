@@ -3660,6 +3660,112 @@ a:hover { color: var(--cyan); }
 }
 .pf-cat-card--selected .pf-cat-check { display: block; }
 
+/* ── Active Room Banner (ar-*) ─────────────────────────────────────────── */
+.ar-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  background: rgba(5,217,232,.06);
+  border: 1px solid rgba(5,217,232,.3);
+  border-radius: 12px;
+  padding: .9rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.ar-left  { display: flex; flex-direction: column; gap: .4rem; min-width: 0; }
+.ar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .2rem;
+}
+.ar-badge-label {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .58rem;
+  letter-spacing: .14em;
+  color: #05D9E8;
+  font-weight: 700;
+}
+.ar-name {
+  font-family: 'Orbitron', monospace;
+  font-size: .82rem;
+  font-weight: 900;
+  color: #e0e0e0;
+  display: block;
+  margin-bottom: .15rem;
+}
+.ar-info  { display: flex; flex-direction: column; gap: .18rem; }
+.ar-meta-row, .ar-code-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-wrap: wrap;
+}
+.ar-cat {
+  font-size: .72rem;
+  font-weight: 700;
+  color: rgba(224,224,224,.7);
+}
+.ar-size {
+  font-size: .68rem;
+  color: var(--brand-muted);
+}
+.ar-code {
+  font-family: 'Orbitron', monospace;
+  font-size: .78rem;
+  font-weight: 900;
+  letter-spacing: .18em;
+  color: #05D9E8;
+}
+.ar-players {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem;
+  color: #3fb950;
+}
+.ar-actions {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  flex-shrink: 0;
+}
+.ar-btn {
+  font-family: 'Share Tech Mono', monospace;
+  font-size: .65rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  border-radius: 7px;
+  padding: .4rem .85rem;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.ar-btn--return {
+  background: rgba(5,217,232,.12);
+  border-color: rgba(5,217,232,.4);
+  color: #05D9E8;
+}
+.ar-btn--return:hover {
+  background: rgba(5,217,232,.22);
+  border-color: #05D9E8;
+}
+.ar-btn--cancel {
+  background: rgba(255,42,109,.08);
+  border-color: rgba(255,42,109,.3);
+  color: #FF2A6D;
+  width: 100%;
+}
+.ar-btn--cancel:hover {
+  background: rgba(255,42,109,.18);
+  border-color: #FF2A6D;
+}
+@media (max-width: 480px) {
+  .ar-banner  { flex-direction: column; align-items: flex-start; }
+  .ar-actions { flex-direction: row; width: 100%; }
+  .ar-btn     { flex: 1; }
+}
+
 /* ── Room List (rl-*) ──────────────────────────────────────────────────── */
 .rl-section-label {
   font-size: .65rem;
@@ -3679,6 +3785,9 @@ a:hover { color: var(--cyan); }
   background: rgba(255,255,255,.03);
   margin-bottom: .45rem;
   transition: border-color .15s, background .15s;
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 .rl-card:hover {
   border-color: rgba(163,113,247,.4);
@@ -3686,6 +3795,19 @@ a:hover { color: var(--cyan); }
 }
 .rl-card--full {
   opacity: .5;
+  cursor: default;
+  pointer-events: none;
+}
+.rl-room-name {
+  font-family: 'Orbitron', monospace;
+  font-size: .65rem;
+  font-weight: 700;
+  color: #05D9E8;
+  letter-spacing: .05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: .08rem;
 }
 
 .rl-cat-icon {

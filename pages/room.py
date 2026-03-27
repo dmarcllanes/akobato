@@ -22,17 +22,25 @@ def room_list_fragment(rooms_data: list, page: int, total_pages: int) -> FT:
         joined   = r["players_joined"]
         total    = r["players_total"]
         cat      = r.get("category", "random")
+        code     = r.get("code", "")
+        name     = r.get("room_name", "")
         icon     = _CAT_ICONS.get(cat, "🎲")
         cat_name = _CAT_NAMES.get(cat, cat.upper())
         size_lbl = f"{ts}v{ts}"
         spots    = total - joined
-        full_cls = " rl-card--full" if spots == 0 else ""
-        spots_lbl = "FULL" if spots == 0 else f"{spots} spot{'s' if spots != 1 else ''} open"
-        spots_color = "var(--brand-muted)" if spots == 0 else "#3fb950"
+        is_full  = spots == 0
+        full_cls = " rl-card--full" if is_full else ""
+        spots_lbl = "FULL" if is_full else f"{spots} spot{'s' if spots != 1 else ''} open"
+        spots_color = "var(--brand-muted)" if is_full else "#3fb950"
 
-        return Div(
+        name_el = (
+            Div(name, cls="rl-room-name") if name else ()
+        )
+
+        inner = A(
             Span(icon, cls="rl-cat-icon"),
             Div(
+                name_el,
                 Div(cat_name, cls="rl-cat-name"),
                 Div(
                     Span(size_lbl, cls="rl-badge rl-badge--size"),
@@ -45,8 +53,10 @@ def room_list_fragment(rooms_data: list, page: int, total_pages: int) -> FT:
                 spots_lbl,
                 style=f"font-size:.68rem; font-weight:700; color:{spots_color}; white-space:nowrap; flex-shrink:0;",
             ),
+            href=f"/r/{code}" if (code and not is_full) else None,
             cls=f"rl-card{full_cls}",
         )
+        return inner
 
     # Empty state
     if not rooms_data:
@@ -785,9 +795,63 @@ def _room_cat_card(slug: str, icon: str, name: str, tagline: str, color: str) ->
     )
 
 
-def join_room_page(error: str = "") -> FT:
+def join_room_page(error: str = "", my_room: dict = None) -> FT:
     """Custom Room hub — choose Create or Join, then configure."""
+
+    active_room_banner = ()
+    if my_room:
+        code     = my_room.get("code", "")
+        name     = my_room.get("room_name", "")
+        cat      = my_room.get("category", "random")
+        ts       = my_room.get("team_size", 1)
+        joined   = my_room.get("players_joined", 1)
+        total    = my_room.get("players_total", 2)
+        username = my_room.get("username", "")
+        cat_icon = _CAT_ICONS.get(cat, "🎲")
+        cat_name = _CAT_NAMES.get(cat, cat.upper())
+        lobby_href = f"/room/lobby/{code}" if ts > 1 else f"/game/{my_room.get('match_id', '')}?player={username}"
+
+        active_room_banner = Div(
+            # Left info
+            Div(
+                Div(
+                    Span("🔴", style="font-size:.55rem; margin-right:.4rem; vertical-align:middle;"),
+                    Span("YOUR ACTIVE ROOM", cls="ar-badge-label"),
+                    cls="ar-badge",
+                ),
+                Div(
+                    Span(name, cls="ar-name") if name else (),
+                    Div(
+                        Span(cat_icon, style="font-size:.9rem; margin-right:.35rem;"),
+                        Span(cat_name, cls="ar-cat"),
+                        Span(f"· {ts}v{ts}", cls="ar-size"),
+                        cls="ar-meta-row",
+                    ),
+                    Div(
+                        Span(code, cls="ar-code"),
+                        Span(f"{joined}/{total} players", cls="ar-players"),
+                        cls="ar-code-row",
+                    ),
+                    cls="ar-info",
+                ),
+                cls="ar-left",
+            ),
+            # Right actions
+            Div(
+                A("RETURN →", href=f"/room/lobby/{code}" if ts > 1 else f"/game/{my_room.get('match_id','')}", cls="ar-btn ar-btn--return"),
+                Form(
+                    Button("CANCEL", type="submit", cls="ar-btn ar-btn--cancel"),
+                    action=f"/room/cancel/{code}?player={username}",
+                    method="post",
+                ),
+                cls="ar-actions",
+            ),
+            cls="ar-banner",
+        )
+
     return Div(
+
+        active_room_banner,
 
         # ── Header ────────────────────────────────────────────────────────────
         Div(

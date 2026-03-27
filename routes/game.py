@@ -311,6 +311,7 @@ def setup_game_routes(rt, game_state):
                 "players_joined": len(match.all_players()),
                 "players_total":  match.team_size * 2,
                 "category":       getattr(match, "category", "random"),
+                "room_name":      getattr(match, "room_name", "") or "",
             })
 
         total      = len(open_rooms)
@@ -394,8 +395,26 @@ def setup_game_routes(rt, game_state):
         if not username:
             return RedirectResponse("/login", status_code=303)
         _alias = req.session.get("alias")
+
+        # Check if this user is already hosting a waiting room
+        my_room = None
+        mid = game_state.player_matches.get(username)
+        if mid:
+            match = game_state.matches.get(mid)
+            if match and match.status == "waiting" and match.room_code and match.player1 == username:
+                my_room = {
+                    "code":           match.room_code,
+                    "match_id":       mid,
+                    "room_name":      getattr(match, "room_name", "") or "",
+                    "category":       getattr(match, "category", "random"),
+                    "team_size":      match.team_size,
+                    "players_joined": len(match.all_players()),
+                    "players_total":  match.team_size * 2,
+                    "username":       username,
+                }
+
         return layout(
-            join_room_page(error=error),
+            join_room_page(error=error, my_room=my_room),
             title="Join Room | Akobato",
             user=username,
             alias=_alias,
