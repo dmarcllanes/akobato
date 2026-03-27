@@ -49,10 +49,14 @@ game_state = GameState()
 
 # ── FastHTML app ──────────────────────────────────────────────────────────────
 _CSS_VERSION = str(int(time.time()))
+_JS_VERSION  = _CSS_VERSION
 
 app, rt = fast_app(
     pico=True,
-    hdrs=(Link(rel="stylesheet", href=f"/static/css/custom.css?v={_CSS_VERSION}"),),
+    hdrs=(
+        Link(rel="stylesheet", href=f"/static/css/custom.css?v={_CSS_VERSION}"),
+        Script(src=f"/static/js/sfx.js?v={_JS_VERSION}", defer=True),
+    ),
     middleware=[
         Middleware(
             SessionMiddleware,

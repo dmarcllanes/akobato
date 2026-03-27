@@ -147,11 +147,19 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
   var timerEl   = document.getElementById('timer-val');
   var displayEl = document.getElementById('timer-display');
   var submitted = false;
+  var lastSec   = -1;
+  var warned    = false;
 
-  // Stop timer when the form is submitted
+  // Play arena-start sound once on load
+  if(window.SFX) SFX.arenaStart();
+
+  // Play submit sound + stop timer when form is submitted
   var form = document.getElementById('debate-form');
   if(form) {{
-    form.addEventListener('submit', function() {{ submitted = true; }});
+    form.addEventListener('submit', function() {{
+      submitted = true;
+      if(window.SFX) SFX.submit();
+    }});
   }}
 
   function tick() {{
@@ -159,6 +167,21 @@ def arena_page(match: MatchState, username: str, my_alias: str = "") -> FT:
     var remaining = Math.max(0, Math.ceil((startedAt + duration - Date.now()) / 1000));
     if(timerEl)   timerEl.textContent = remaining;
     if(remaining <= 10 && displayEl) displayEl.classList.add('timer-low');
+
+    // Sound effects (fire once per second change)
+    if(remaining !== lastSec) {{
+      lastSec = remaining;
+      if(window.SFX) {{
+        if(remaining === 0) {{
+          SFX.timerEnd();
+        }} else if(remaining <= 10) {{
+          SFX.warning();
+        }} else {{
+          SFX.tick();
+        }}
+      }}
+    }}
+
     if(remaining === 0) {{
       submitted = true;
       if(form) htmx.trigger(form, 'submit');
@@ -270,7 +293,10 @@ def submitted_view(username: str, match_id: str, submitted: int = 0, total: int 
   ws.onmessage = function(e){{
     try {{
       var data = JSON.parse(e.data);
-      if(data.action === 'redirect') window.location.href = data.url;
+      if(data.action === 'redirect') {{
+        if(window.SFX) SFX.matchFound();
+        setTimeout(function(){{ window.location.href = data.url; }}, 300);
+      }}
     }} catch(_) {{}}
   }};
   ws.onerror = function(){{

@@ -79,6 +79,17 @@ def verdict_component(match: MatchState, username: str) -> FT:
               style="background:rgba(255,255,255,.08); color:var(--fg); border:1px solid rgba(255,255,255,.15);"),
             style="display:flex; gap:.75rem; flex-wrap:wrap; justify-content:center;",
         ),
+        Script(f"""
+(function(){{
+  if(!window.SFX) return;
+  var outcome = '{("win" if you_won else ("tie" if you_tied else "lose"))}';
+  setTimeout(function(){{
+    if(outcome === 'win')       SFX.win();
+    else if(outcome === 'tie') SFX.tie();
+    else                       SFX.lose();
+  }}, 200);
+}})();
+"""),
         id="submit-area",
     )
 
