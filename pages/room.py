@@ -823,10 +823,19 @@ def join_room_page(error: str = "") -> FT:
                 )),
             ),
             # Topic carousel
-            Div("PICK A TOPIC", style=(
-                "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
-                "color:var(--brand-muted); margin-bottom:.65rem;"
-            )),
+            Div(
+                Div("PICK A TOPIC", style=(
+                    "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
+                    "color:var(--brand-muted);"
+                )),
+                Div(
+                    Span("👆", style="font-size:.85rem;"),
+                    Span("Swipe or tap a card to select"),
+                    id="rc-hint",
+                    cls="rc-hint",
+                ),
+                style="margin-bottom:.65rem;",
+            ),
             Div(
                 # Sliding track
                 Div(
@@ -984,6 +993,12 @@ def join_room_page(error: str = "") -> FT:
     var next = document.getElementById('rc-next');
     if(prev) prev.style.opacity = rcCurrent === 0 ? '0.3' : '1';
     if(next) next.style.opacity = rcCurrent === rcTotal - 1 ? '0.3' : '1';
+    // Pulse the currently visible card (only while nothing is selected)
+    if(!selectedSlug) {
+      document.querySelectorAll('.rc-card').forEach(function(c, i) {
+        c.classList.toggle('rc-card--attention', i === rcCurrent);
+      });
+    }
   }
   window.rcGoTo = rcGoTo;
   window.rcStep = function(dir) { rcGoTo(rcCurrent + dir); };
@@ -992,7 +1007,10 @@ def join_room_page(error: str = "") -> FT:
     selectedSlug = slug;
     document.querySelectorAll('.rc-card').forEach(function(el) {
       el.classList.toggle('rc-card--selected', el.dataset.slug === slug);
+      el.classList.remove('rc-card--attention');
     });
+    var hint = document.getElementById('rc-hint');
+    if(hint){ hint.style.opacity='0'; hint.style.pointerEvents='none'; }
     var summary = document.getElementById('cat-summary');
     if(summary) summary.textContent = '✓  ' + (CAT_NAMES[slug] || slug) + ' selected';
     var btn = document.getElementById('create-room-btn');

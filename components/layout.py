@@ -42,21 +42,20 @@ def layout(
             method="post",
         )
         nav_right = Div(
-            A("Dashboard",    href="/dashboard",   cls="nav-link"),
-            A("Hall of Fame", href="/leaderboard", cls="nav-link"),
-            A("Burn Board",   href="/roast",       cls="nav-link"),
-            A("Custom Room",  href="/join-room",   cls="nav-link"),
-            A("Profile",      href="/profile",     cls="nav-link"),
+            A(Span("⚔", cls="nl-icon"), Span("Arena",  cls="nl-text"), href="/dashboard",   cls="nav-link nav-link--arena"),
+            A(Span("🏆", cls="nl-icon"), Span("Fame",   cls="nl-text"), href="/leaderboard", cls="nav-link nav-link--fame"),
+            A(Span("🔥", cls="nl-icon"), Span("Burn",   cls="nl-text"), href="/roast",       cls="nav-link nav-link--burn"),
+            A(Span("🔗", cls="nl-icon"), Span("Rooms",  cls="nl-text"), href="/join-room",   cls="nav-link nav-link--rooms"),
             nav_user,
             nav_action,
             cls="nav-right",
         )
         mobile_menu = Div(
-            A("Dashboard",    href="/dashboard",   cls="nav-link"),
-            A("Hall of Fame", href="/leaderboard", cls="nav-link"),
-            A("Burn Board",   href="/roast",       cls="nav-link"),
-            A("Custom Room",  href="/join-room",   cls="nav-link"),
-            A("Profile",      href="/profile",     cls="nav-link"),
+            A(Span("⚔", cls="nl-icon"), Span("Arena",   cls="nl-text"), href="/dashboard",   cls="nav-link nav-link--arena"),
+            A(Span("🏆", cls="nl-icon"), Span("Fame",    cls="nl-text"), href="/leaderboard", cls="nav-link nav-link--fame"),
+            A(Span("🔥", cls="nl-icon"), Span("Burn",    cls="nl-text"), href="/roast",       cls="nav-link nav-link--burn"),
+            A(Span("🔗", cls="nl-icon"), Span("Rooms",   cls="nl-text"), href="/join-room",   cls="nav-link nav-link--rooms"),
+            A(Span("👤", cls="nl-icon"), Span("Profile", cls="nl-text"), href="/profile",     cls="nav-link nav-link--profile"),
             nav_action,
             cls="nav-mobile-menu",
             id="nav-mobile-menu",
@@ -98,15 +97,15 @@ def layout(
         ) if tokens is not None else ()
     else:
         nav_right = Div(
-            A("Hall of Fame", href="/leaderboard", cls="nav-link"),
-            A("Burn Board",   href="/roast",       cls="nav-link"),
-            A("Sign in", href="/login", cls="nav-signin"),
+            A(Span("🏆", cls="nl-icon"), Span("Fame", cls="nl-text"), href="/leaderboard", cls="nav-link nav-link--fame"),
+            A(Span("🔥", cls="nl-icon"), Span("Burn", cls="nl-text"), href="/roast",       cls="nav-link nav-link--burn"),
+            A("SIGN IN", href="/login", cls="nav-signin"),
             cls="nav-right",
         )
         mobile_menu = Div(
-            A("Hall of Fame", href="/leaderboard", cls="nav-link"),
-            A("Burn Board",   href="/roast",       cls="nav-link"),
-            A("Sign in", href="/login", cls="nav-signin nav-signin--mobile"),
+            A(Span("🏆", cls="nl-icon"), Span("Fame", cls="nl-text"), href="/leaderboard", cls="nav-link nav-link--fame"),
+            A(Span("🔥", cls="nl-icon"), Span("Burn", cls="nl-text"), href="/roast",       cls="nav-link nav-link--burn"),
+            A("SIGN IN", href="/login", cls="nav-signin nav-signin--mobile"),
             cls="nav-mobile-menu",
             id="nav-mobile-menu",
         )
