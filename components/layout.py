@@ -66,12 +66,12 @@ def layout(
 
         bottom_bar = Div(
             Div(
-                # Left — energy status
+                # Left — token status
                 Div(
-                    Span("⚡", cls="bbar-icon"),
+                    Span("🪙", cls="bbar-icon"),
                     Div(
                         Div(
-                            Span("ENERGY", cls="bbar-label"),
+                            Span("TOKENS", cls="bbar-label"),
                             Span(f"{_tok} / 5", cls="bbar-count"),
                             cls="bbar-row",
                         ),
@@ -85,10 +85,10 @@ def layout(
                 ),
                 # Divider
                 Span(cls="bbar-divider"),
-                # Right — add energy button
+                # Right — add tokens button
                 A(
                     Span("＋", cls="bbar-add-icon"),
-                    Span("ADD ENERGY", cls="bbar-add-label"),
+                    Span("ADD TOKENS", cls="bbar-add-label"),
                     href="/play",
                     cls="bbar-add-btn",
                 ),

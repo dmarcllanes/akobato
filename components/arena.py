@@ -13,7 +13,7 @@ def home_page(username: str | None = None) -> FT:
                     f"Welcome, ", Strong(username), "! Ready to clash?",
                     style="color: var(--brand-muted); margin-bottom: 2rem;",
                 ),
-                A("⚡ Enter the Arena", href="/join", cls="btn-fight", style="display:block; text-align:center; text-decoration:none;"),
+                A("🪙 Enter the Arena", href="/join", cls="btn-fight", style="display:block; text-align:center; text-decoration:none;"),
                 Form(
                     Button("Sign out", type="submit", cls="btn-signout"),
                     action="/auth/logout",

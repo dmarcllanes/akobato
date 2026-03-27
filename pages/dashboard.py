@@ -106,7 +106,7 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
             _stat("🏆", "WINS",     wins,     "stat-win"),
             _stat("💀", "LOSSES",   losses,   "stat-loss"),
             _stat("🤝", "TIES",     ties,     ""),
-            _stat("⚡", "ENERGY",   f"{tokens}/5", f"stat-tokens{'--empty' if tokens == 0 else ''}"),
+            _stat("🪙", "TOKENS",   f"{tokens}/5", f"stat-tokens{'--empty' if tokens == 0 else ''}"),
             cls="dash-stats",
         ),
 

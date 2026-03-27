@@ -299,13 +299,13 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
             ),
         )),
 
-        # ── Cancel ────────────────────────────────────────────────────────────
-        Form(
+        # ── Cancel — hidden once room is full (match is starting) ─────────────
+        (Form(
             Button("✕  CANCEL", type="submit", cls="wt-cancel-btn"),
             action=f"/room/cancel/{room_code}?player={username}",
             method="post",
             style="margin-top:1rem;",
-        ),
+        ) if players_joined < players_needed else ()),
 
         # ── Scripts ───────────────────────────────────────────────────────────
         Script(f"""

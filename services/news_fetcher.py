@@ -14,7 +14,7 @@ from collections import deque
 from groq import Groq
 
 # ── Rolling dedup window ───────────────────────────────────────────────────────
-_used_prompts: deque = deque(maxlen=60)
+_used_prompts: deque = deque(maxlen=120)
 
 # ── Pre-fetched prompt pool: category → deque of ready prompts ────────────────
 _prompt_pool: dict[str, deque] = {}
@@ -276,20 +276,30 @@ async def _headline_to_prompt_async(headline: str, category: str) -> str:
     if not groq_key:
         return _pick_unused(category)
 
+    # Unique seed words to prevent the model generating the same question twice
+    _seeds = [
+        "unexpected", "underrated", "controversial", "polarising", "provocative",
+        "nuanced", "radical", "surprising", "overlooked", "divisive",
+    ]
+    seed = random.choice(_seeds)
+
     if headline:
         content = (
             f"News headline: '{headline}'\n\n"
-            "Write ONE punchy debate question based on this news. "
+            f"Write ONE {seed}, punchy debate question based on this news. "
             "Make it provocative, fun, and something two people would strongly disagree on. "
+            "Be specific — avoid generic phrasing. "
             "Output ONLY the question. Max 25 words. No quotes around it."
         )
     else:
         themes  = _AI_THEMES.get(category, ["current events"])
         theme   = random.choice(themes)
+        angle   = random.choice(["economic", "ethical", "social", "political", "cultural", "generational"])
         content = (
             f"Topic area: {category} — specifically about: {theme}\n\n"
-            "Invent ONE original, spicy debate question that two people would strongly disagree on. "
-            "Be provocative and specific, not generic. "
+            f"Invent ONE original, {seed}, {angle}-angle debate question "
+            "that two people would strongly disagree on. "
+            "Be provocative and very specific — no generic questions. "
             "Output ONLY the question. Max 25 words. No quotes around it."
         )
 
@@ -310,6 +320,9 @@ async def _headline_to_prompt_async(headline: str, category: str) -> str:
 
 
 def _pick_unused(category: str) -> str:
-    pool   = FALLBACK.get(category) or [p for v in FALLBACK.values() for p in v]
+    pool   = list(FALLBACK.get(category) or [p for v in FALLBACK.values() for p in v])
+    random.shuffle(pool)          # shuffle so repeated calls get different ordering
     unused = [p for p in pool if p not in _used_prompts]
-    return random.choice(unused if unused else pool)
+    chosen = random.choice(unused if unused else pool)
+    _used_prompts.append(chosen)  # track immediately so concurrent callers don't get same one
+    return chosen

@@ -176,7 +176,7 @@ def landing_page() -> FT:
                     cls="lp-token-grid",
                 ),
                 Div(
-                    Span("⚡ FIRST MATCH IS ALWAYS FREE", cls="lp-free-badge"),
+                    Span("🪙 FIRST MATCH IS ALWAYS FREE", cls="lp-free-badge"),
                     Br(),
                     A("GET STARTED →", href="/auth/login", cls="lp-cta-btn",
                       style="margin-top:24px; display:inline-block;"),

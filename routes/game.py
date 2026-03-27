@@ -543,6 +543,16 @@ def setup_game_routes(rt, game_state):
                 user=player or None,
                 alias=_alias,
             )
+        # If judging is in progress, show submitted view so they wait for verdict
+        if match.status == "judging":
+            submitted, total = match.submitted_count()
+            return layout(
+                submitted_view(player, match.match_id,
+                               submitted=submitted, total=total, judging=True),
+                title="Judging... | Akobato",
+                user=player or None,
+                alias=_alias,
+            )
         my_alias = _alias or match.alias_of(player) or _lookup_alias(player, game_state)
         return layout(
             arena_page(match, player, my_alias),
@@ -655,6 +665,10 @@ async def _maybe_judge(match: MatchState, game_state) -> None:
         await asyncio.to_thread(_save_to_db, match, game_state)
         for p in match.all_players():
             game_state.player_matches.pop(p, None)
+    except Exception as e:
+        log.error("Judge failed for match %s: %s — resetting to active for retry", match.match_id, e)
+        # Reset so the match can be re-judged on the next trigger
+        match.status = "active"
     finally:
         _judging_in_progress.discard(match.match_id)
 

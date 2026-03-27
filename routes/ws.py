@@ -47,9 +47,11 @@ def setup_ws_routes(app, game_state):
                 if not match:
                     await websocket.send_text(json.dumps({"action": "error", "msg": "match_not_found"}))
                     break
-                # Handle timeout: auto-submit for all players who haven't submitted
+                # Handle timeout: auto-submit anyone who didn't submit before timer expired
                 if match.is_expired():
                     match.auto_submit_expired()
+                # Drive judging forward when all args are in (also retries if AI previously failed)
+                if match.status == "judging":
                     from routes.game import _maybe_judge
                     await _maybe_judge(match, game_state)
                 if match.status == "complete" and match.verdict:
