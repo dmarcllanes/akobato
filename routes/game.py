@@ -511,7 +511,7 @@ def setup_game_routes(rt, game_state):
         _alias = req.session.get("alias")
         if not match:
             return layout(
-                Div(H2("Match not found."), A("← Home", href="/dashboard")),
+                Div(H2("Match not found."), A("← Home", href="/dashboard", cls="cat-back", style="margin-top:1rem;")),
                 user=player or None,
                 alias=_alias,
             )

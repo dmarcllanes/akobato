@@ -190,7 +190,7 @@ def team_pick_page(room_code: str, username: str, my_alias: str,
         ),
 
         A("← Back", href="/join-room", cls="cat-back",
-          style="margin-top:1rem; display:inline-block;"),
+          style="margin-top:1rem;"),
 
         cls="wt-page",
     )
@@ -427,16 +427,36 @@ def team_slots_fragment(room_code: str, team_size: int,
 
 
 _PRIVATE_CATEGORIES = [
-    ("random",        "🎲", "SURPRISE ME"),
-    ("world",         "🌍", "WORLD NEWS"),
-    ("technology",    "💻", "TECHNOLOGY"),
-    ("politics",      "🏛️", "POLITICS"),
-    ("sports",        "⚽", "SPORTS"),
-    ("entertainment", "🎬", "ENTERTAINMENT"),
-    ("science",       "🔬", "SCIENCE"),
-    ("business",      "💰", "BUSINESS"),
-    ("gaming",        "🎮", "GAMING"),
+    ("random",        "🎲", "SURPRISE ME",   "No prep. No excuses.",        "#FFC200"),
+    ("world",         "🌍", "WORLD NEWS",     "Live breaking headlines",     "#05D9E8"),
+    ("technology",    "💻", "TECHNOLOGY",     "AI · gadgets · startups",     "#a371f7"),
+    ("politics",      "🏛️", "POLITICS",       "Power · policy · debate",     "#FF2A6D"),
+    ("sports",        "⚽", "SPORTS",         "Wins · trades · rivalry",     "#3fb950"),
+    ("entertainment", "🎬", "ENTERTAINMENT",  "Movies · music · celebs",     "#FFC200"),
+    ("science",       "🔬", "SCIENCE",        "Space · breakthroughs",       "#05D9E8"),
+    ("business",      "💰", "BUSINESS",       "Markets · money · hustle",    "#3fb950"),
+    ("gaming",        "🎮", "GAMING",         "Esports · games · culture",   "#a371f7"),
 ]
+
+
+def _room_cat_card(slug: str, icon: str, name: str, tagline: str, color: str) -> FT:
+    """Compact carousel card for category selection in the custom room creator."""
+    return Div(
+        Div(
+            Span(icon, cls="rc-icon"),
+            Div(
+                Div(name, cls="rc-name", style=f"color:{color}"),
+                Div(tagline, cls="rc-tagline"),
+            ),
+            Span("✓", cls="rc-check"),
+            cls="rc-inner",
+            style=f"--rc-color:{color};",
+        ),
+        cls="rc-card",
+        data_slug=slug,
+        onclick=f"rcSelect('{slug}')",
+        id=f"rc-{slug}",
+    )
 
 
 def join_room_page(error: str = "") -> FT:
@@ -514,31 +534,44 @@ def join_room_page(error: str = "") -> FT:
                     "min-height:1.1em; margin-bottom:1rem;"
                 )),
             ),
-            # Topic label
+            # Topic carousel
             Div("PICK A TOPIC", style=(
                 "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
                 "color:var(--brand-muted); margin-bottom:.65rem;"
             )),
-            # Selectable category grid
             Div(
-                *[
+                # Sliding track
+                Div(
                     Div(
-                        Span(icon, style="font-size:1.15rem;"),
-                        Div(name, style="font-size:.78rem; font-weight:700; letter-spacing:.04em;"),
-                        Span("✓", cls="pf-cat-check"),
-                        data_slug=slug,
-                        onclick=f"selectCategory('{slug}')",
-                        id=f"cat-{slug}",
-                        cls="pf-cat-card",
-                    )
-                    for slug, icon, name in _PRIVATE_CATEGORIES
-                ],
-                cls="pf-cat-grid",
+                        *[_room_cat_card(slug, icon, name, tagline, color)
+                          for slug, icon, name, tagline, color in _PRIVATE_CATEGORIES],
+                        cls="rc-track",
+                        id="rc-track",
+                    ),
+                    cls="rc-track-wrap",
+                    id="rc-track-wrap",
+                ),
+                # Nav row: prev · dots · next
+                Div(
+                    Button("‹", type="button", cls="cs-nav-btn cs-prev", id="rc-prev",
+                           onclick="rcStep(-1)", aria_label="Previous topic"),
+                    Div(
+                        *[Div(cls=f"cs-dot{'  cs-dot--active' if i == 0 else ''}",
+                              data_idx=str(i), onclick=f"rcGoTo({i})")
+                          for i in range(len(_PRIVATE_CATEGORIES))],
+                        cls="cs-dots",
+                        id="rc-dots",
+                    ),
+                    Button("›", type="button", cls="cs-nav-btn cs-next", id="rc-next",
+                           onclick="rcStep(1)", aria_label="Next topic"),
+                    cls="cs-nav",
+                ),
+                cls="rc-wrap",
             ),
             # Selected topic summary
             Div(id="cat-summary", style=(
                 "font-size:.78rem; color:var(--brand-cyan); min-height:1.2em;"
-                "margin-top:.65rem; text-align:center;"
+                "margin-top:.35rem; margin-bottom:.5rem; text-align:center;"
             )),
             # Create Room button
             Button(
@@ -607,7 +640,7 @@ def join_room_page(error: str = "") -> FT:
         ),
 
         A("← Back", href="/dashboard", cls="cat-back",
-          style="margin-top:1.25rem; display:inline-block;"),
+          style="margin-top:1.25rem;"),
 
         Script("""
 (function(){
@@ -641,18 +674,36 @@ def join_room_page(error: str = "") -> FT:
     if(hint) hint.textContent = HINTS[n] || '';
   };
 
-  /* ── Category selection ──────────────────────────────── */
+  /* ── Category carousel ───────────────────────────────── */
   var selectedSlug = null;
+  var rcTotal   = """ + str(len(_PRIVATE_CATEGORIES)) + """;
+  var rcCurrent = 0;
+  var rcTrack   = document.getElementById('rc-track');
+  var rcDots    = document.getElementById('rc-dots');
   var CAT_NAMES = {
     random:'SURPRISE ME', world:'WORLD NEWS', technology:'TECHNOLOGY',
     politics:'POLITICS', sports:'SPORTS', entertainment:'ENTERTAINMENT',
     science:'SCIENCE', business:'BUSINESS', gaming:'GAMING',
   };
 
-  window.selectCategory = function(slug) {
+  function rcGoTo(idx) {
+    rcCurrent = Math.max(0, Math.min(idx, rcTotal - 1));
+    rcTrack.style.transform = 'translateX(-' + (rcCurrent * 100) + '%)';
+    if(rcDots) rcDots.querySelectorAll('.cs-dot').forEach(function(d, i) {
+      d.classList.toggle('cs-dot--active', i === rcCurrent);
+    });
+    var prev = document.getElementById('rc-prev');
+    var next = document.getElementById('rc-next');
+    if(prev) prev.style.opacity = rcCurrent === 0 ? '0.3' : '1';
+    if(next) next.style.opacity = rcCurrent === rcTotal - 1 ? '0.3' : '1';
+  }
+  window.rcGoTo = rcGoTo;
+  window.rcStep = function(dir) { rcGoTo(rcCurrent + dir); };
+
+  window.rcSelect = function(slug) {
     selectedSlug = slug;
-    document.querySelectorAll('.pf-cat-card').forEach(function(el){
-      el.classList.toggle('pf-cat-card--selected', el.dataset.slug === slug);
+    document.querySelectorAll('.rc-card').forEach(function(el) {
+      el.classList.toggle('rc-card--selected', el.dataset.slug === slug);
     });
     var summary = document.getElementById('cat-summary');
     if(summary) summary.textContent = '✓  ' + (CAT_NAMES[slug] || slug) + ' selected';
@@ -660,11 +711,35 @@ def join_room_page(error: str = "") -> FT:
     if(btn){ btn.disabled = false; btn.style.opacity='1'; btn.style.cursor='pointer'; }
   };
 
+  /* Touch swipe on carousel */
+  (function(){
+    var wrap = document.getElementById('rc-track-wrap');
+    if(!wrap) return;
+    var tx = 0, ty = 0, drag = false;
+    wrap.addEventListener('touchstart', function(e){
+      tx = e.touches[0].clientX; ty = e.touches[0].clientY; drag = true;
+    }, { passive: true });
+    wrap.addEventListener('touchmove', function(e){
+      if(!drag) return;
+      if(Math.abs(e.touches[0].clientX-tx) > Math.abs(e.touches[0].clientY-ty))
+        e.preventDefault();
+    }, { passive: false });
+    wrap.addEventListener('touchend', function(e){
+      if(!drag) return; drag = false;
+      var dx = e.changedTouches[0].clientX - tx;
+      var dy = Math.abs(e.changedTouches[0].clientY - ty);
+      if(dy > 60) return;
+      if(dx < -44) rcGoTo(rcCurrent + 1);
+      else if(dx > 44) rcGoTo(rcCurrent - 1);
+    });
+  })();
+
   window.submitCreate = function() {
     if(!selectedSlug) return;
     window.location.href = '/room/create?category='+selectedSlug+'&team_size='+currentSize;
   };
 
+  rcGoTo(0);
   setTeamSize(1);
 })();
 """),

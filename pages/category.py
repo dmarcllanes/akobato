@@ -90,11 +90,11 @@ def category_page(username: str, tokens: int = 5) -> FT:
                 P("Two steps to your next battle.", cls="wz-subtitle"),
             ),
             Div(
-                Span("🪙", style="font-size:.9rem;"),
-                Span(f"{tokens}/5", style="font-weight:900; font-size:.85rem;"),
+                Span("🪙", style="font-size:.9rem; filter:drop-shadow(0 0 5px rgba(255,194,0,.75));"),
+                Span(f"{tokens}/5", style="font-weight:900; font-size:.85rem; color:#FFC200;"),
                 Span("TOKENS", style=(
                     "font-size:.6rem; font-weight:700; letter-spacing:.1em;"
-                    "color:var(--brand-muted); margin-left:.1rem;"
+                    "color:rgba(255,194,0,.6); margin-left:.1rem;"
                 )),
                 *[Span(
                     cls=f"wz-energy-pip {'wz-energy-pip--on' if i < tokens else ''}",
