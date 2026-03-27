@@ -198,7 +198,8 @@ def team_pick_page(room_code: str, username: str, my_alias: str,
 
 def room_wait_page(room_code: str, username: str, prompt: str = "",
                    team_size: int = 1, team1_aliases: list = None,
-                   team2_aliases: list = None) -> FT:
+                   team2_aliases: list = None, is_host: bool = False,
+                   room_name: str = "") -> FT:
     """Shown to any player in the room while waiting for it to fill up."""
     t1 = team1_aliases or []
     t2 = team2_aliases or []
@@ -206,7 +207,25 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
     players_needed = team_size * 2
     players_joined = len(t1) + len(t2)
 
+    leave_action = (
+        f"/room/cancel/{room_code}?player={username}" if is_host
+        else f"/room/leave/{room_code}?player={username}"
+    )
+    leave_label = "✕  CANCEL ROOM" if is_host else "← LEAVE ROOM"
+
     return Div(
+
+        # ── Room indicator ────────────────────────────────────────────────────
+        Div(
+            Span("🔗", style="font-size:.85rem; margin-right:.4rem;"),
+            *(
+                [Span(room_name, cls="wt-room-name"), Span(" · ", style="color:rgba(224,224,224,.25); margin:0 .3rem;")]
+                if room_name else
+                [Span("ROOM ", style="color:rgba(224,224,224,.4); font-size:.7rem; letter-spacing:.1em;")]
+            ),
+            Span(room_code, cls="wt-room-code"),
+            cls="wt-room-indicator",
+        ),
 
         # ── Header ────────────────────────────────────────────────────────────
         Div(
@@ -299,13 +318,13 @@ def room_wait_page(room_code: str, username: str, prompt: str = "",
             ),
         )),
 
-        # ── Cancel — hidden once room is full (match is starting) ─────────────
-        (Form(
-            Button("✕  CANCEL", type="submit", cls="wt-cancel-btn"),
-            action=f"/room/cancel/{room_code}?player={username}",
+        # ── Leave / Cancel — always visible ───────────────────────────────────
+        Form(
+            Button(leave_label, type="submit", cls="wt-cancel-btn"),
+            action=leave_action,
             method="post",
             style="margin-top:1rem;",
-        ) if players_joined < players_needed else ()),
+        ),
 
         # ── Scripts ───────────────────────────────────────────────────────────
         Script(f"""
@@ -545,6 +564,7 @@ def room_lobby_page(
     team1_aliases: list, team2_aliases: list,
     joined_team=None,
     is_host: bool = False,
+    room_name: str = "",
 ) -> FT:
     """
     Unified lobby for 2v2 / 3v3 custom rooms.
@@ -568,7 +588,25 @@ def room_lobby_page(
         f"{size_label} — pick a team to enter the room"
     )
 
+    leave_action = (
+        f"/room/cancel/{room_code}?player={username}" if is_host
+        else f"/room/leave/{room_code}?player={username}"
+    )
+    leave_label = "✕  CANCEL ROOM" if is_host else "← LEAVE ROOM"
+
     return Div(
+
+        # ── Room indicator ────────────────────────────────────────────────────
+        Div(
+            Span("🔗", style="font-size:.85rem; margin-right:.4rem;"),
+            *(
+                [Span(room_name, cls="wt-room-name"), Span(" · ", style="color:rgba(224,224,224,.25); margin:0 .3rem;")]
+                if room_name else
+                [Span("ROOM ", style="color:rgba(224,224,224,.4); font-size:.7rem; letter-spacing:.1em;")]
+            ),
+            Span(room_code, cls="wt-room-code"),
+            cls="wt-room-indicator",
+        ),
 
         # Header
         Div(
@@ -650,13 +688,13 @@ def room_lobby_page(
             ),
         ) if is_full else ()),
 
-        # Cancel — host only, not yet full
-        (Form(
-            Button("✕  CANCEL", type="submit", cls="wt-cancel-btn"),
-            action=f"/room/cancel/{room_code}?player={username}",
+        # Leave / Cancel — always visible for everyone
+        Form(
+            Button(leave_label, type="submit", cls="wt-cancel-btn"),
+            action=leave_action,
             method="post",
             style="margin-top:1rem;",
-        ) if is_host and not is_full else ()),
+        ),
 
         # Scripts
         Script(f"""
@@ -870,6 +908,27 @@ def join_room_page(error: str = "") -> FT:
                 "font-size:.78rem; color:var(--brand-cyan); min-height:1.2em;"
                 "margin-top:.35rem; margin-bottom:.5rem; text-align:center;"
             )),
+            # Room name input
+            Div(
+                Div("ROOM NAME", style=(
+                    "font-size:.65rem; font-weight:900; letter-spacing:.12em;"
+                    "color:var(--brand-muted); margin-bottom:.4rem;"
+                )),
+                Input(
+                    type="text",
+                    id="room-name-input",
+                    placeholder="e.g. Friday Night Fights",
+                    maxlength="32",
+                    autocomplete="off",
+                    style=(
+                        "width:100%; box-sizing:border-box; background:rgba(255,255,255,.05);"
+                        "border:1px solid rgba(255,255,255,.12); border-radius:8px;"
+                        "color:var(--fg); font-size:.85rem; padding:.55rem .75rem;"
+                        "outline:none; font-family:inherit;"
+                    ),
+                ),
+                style="margin-bottom:.5rem;",
+            ),
             # Create Room button
             Button(
                 "🔗  Create Room →",
@@ -1042,7 +1101,9 @@ def join_room_page(error: str = "") -> FT:
 
   window.submitCreate = function() {
     if(!selectedSlug) return;
-    window.location.href = '/room/create?category='+selectedSlug+'&team_size='+currentSize;
+    var nameEl = document.getElementById('room-name-input');
+    var roomName = nameEl ? nameEl.value.trim() : '';
+    window.location.href = '/room/create?category='+selectedSlug+'&team_size='+currentSize+(roomName?'&room_name='+encodeURIComponent(roomName):'');
   };
 
   rcGoTo(0);

@@ -82,7 +82,7 @@ def setup_ws_routes(app, game_state):
                     break
                 if match.status != "waiting":
                     # Brief delay so all players receive the redirect signal together
-                    await asyncio.sleep(0.3)
+                    await asyncio.sleep(0.1)
                     await websocket.send_text(json.dumps({
                         "action": "redirect",
                         "url": f"/game/{mid}?player={username}",

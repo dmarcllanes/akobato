@@ -12,6 +12,60 @@ RANKS = [
     (600,  "LEGEND",     "#ff9900", "VII"),
 ]
 
+_MODES = [
+    ("⚡", "QUICK MATCH",  "Random 1v1 · Instant matchmaking",   "#FF2A6D", "FASTEST",
+     ["Paired with a random human opponent", "Random topic from breaking news", "AI judge declares the winner"],
+     "FIND OPPONENT", "/join?category=random&mode=versus"),
+    ("🎯", "PICK TOPIC",   "Choose your battlefield category",    "#a371f7", None,
+     ["9 topic categories available", "Preview sample debate questions", "Works with Quick Match or Custom Room"],
+     "BROWSE TOPICS",  "/play"),
+    ("🔗", "CUSTOM ROOM",  "Private match · Invite your squad",   "#05D9E8", None,
+     ["1v1, 2v2, or 3v3 team formats", "Shareable invite link or room code", "You pick the topic category"],
+     "CREATE ROOM",    "/join-room"),
+    ("🏆", "HALL OF FAME", "Global rankings · Top fighters",      "#FFC200", None,
+     ["Top 50 players ranked by score", "See win rate, rank tier, and record", "Climb through 7 rank tiers to LEGEND"],
+     "VIEW RANKINGS",  "/leaderboard"),
+]
+
+
+def _mode_slide(icon, name, tagline, color, badge, features, cta, href) -> FT:
+    feat_els = [
+        Div(
+            Span("▸", style=f"color:{color}; margin-right:.42rem; flex-shrink:0;"),
+            Span(f, cls="dm-feat-text"),
+            cls="dm-feat",
+        )
+        for f in features
+    ]
+    badge_el = (
+        Span(badge, cls="dm-badge",
+             style=f"color:{color}; background:{color}1a; border:1px solid {color}44;")
+        if badge else ()
+    )
+    return Div(
+        A(
+            Span(icon, cls="dm-ghost"),
+            Div(
+                badge_el,
+                Div(name, cls="dm-name", style=f"color:{color};"),
+                Div(tagline, cls="dm-tagline"),
+                Div(*feat_els, cls="dm-feats"),
+                Div(
+                    Span(cta, cls="dm-cta-text"),
+                    Span("→", cls="dm-cta-arr"),
+                    cls="dm-cta",
+                    style=f"color:{color}; border-color:{color}40;",
+                ),
+                cls="dm-body",
+            ),
+            href=href,
+            cls="dm-card",
+            style=f"border-left:3px solid {color};",
+        ),
+        cls="dm-slide",
+    )
+
+
 def _get_rank(score):
     rank = RANKS[0]
     for threshold, title, color, tier in RANKS:
@@ -110,97 +164,74 @@ def dashboard_page(username: str, stats: dict, top_players: list, alias: str = "
             cls="dash-stats",
         ),
 
-        # ── Mode select ──────────────────────────────────────────────────────
+        # ── Mode select carousel ─────────────────────────────────────────────
         Div(
-            Span("// SELECT MODE", cls="dash-section-tag"),
+            Div(Span("// SELECT MODE", cls="dash-section-tag"), cls="dm-header"),
             Div(
-                # Quick fight (human vs human)
-                A(
-                    Div(
-                        Div(
-                            Span("👥", cls="dash-mode-icon"),
-                            Div(
-                                Div("QUICK MATCH", cls="dash-mode-name"),
-                                Div("Random topic · human vs human", cls="dash-mode-sub"),
-                                cls="dash-mode-text",
-                            ),
-                            cls="dash-mode-top",
-                        ),
-                        Div(
-                            Span("FIND OPPONENT", cls="dash-mode-press"),
-                            cls="dash-mode-footer",
-                        ),
-                        cls="dash-mode-inner",
-                    ),
-                    href="/join?category=random&mode=versus",
-                    cls="dash-mode-card dash-mode-card--hot",
+                Div(
+                    *[_mode_slide(*m) for m in _MODES],
+                    cls="dm-track",
+                    id="dm-track",
                 ),
-                # Choose category
-                A(
-                    Div(
-                        Div(
-                            Span("🎯", cls="dash-mode-icon"),
-                            Div(
-                                Div("PICK TOPIC", cls="dash-mode-name"),
-                                Div("Choose your battlefield", cls="dash-mode-sub"),
-                                cls="dash-mode-text",
-                            ),
-                            cls="dash-mode-top",
-                        ),
-                        Div(
-                            Span("SELECT →", cls="dash-mode-press"),
-                            cls="dash-mode-footer",
-                        ),
-                        cls="dash-mode-inner",
-                    ),
-                    href="/play",
-                    cls="dash-mode-card",
-                ),
-                # Custom Room
-                A(
-                    Div(
-                        Div(
-                            Span("🔗", cls="dash-mode-icon"),
-                            Div(
-                                Div("CUSTOM ROOM", cls="dash-mode-name"),
-                                Div("Set teams · pick topic · invite", cls="dash-mode-sub"),
-                                cls="dash-mode-text",
-                            ),
-                            cls="dash-mode-top",
-                        ),
-                        Div(
-                            Span("INVITE →", cls="dash-mode-press"),
-                            cls="dash-mode-footer",
-                        ),
-                        cls="dash-mode-inner",
-                    ),
-                    href="/join-room",
-                    cls="dash-mode-card",
-                ),
-                # Leaderboard
-                A(
-                    Div(
-                        Div(
-                            Span("🏆", cls="dash-mode-icon"),
-                            Div(
-                                Div("HALL OF FAME", cls="dash-mode-name"),
-                                Div("Global rankings", cls="dash-mode-sub"),
-                                cls="dash-mode-text",
-                            ),
-                            cls="dash-mode-top",
-                        ),
-                        Div(
-                            Span("VIEW →", cls="dash-mode-press"),
-                            cls="dash-mode-footer",
-                        ),
-                        cls="dash-mode-inner",
-                    ),
-                    href="/leaderboard",
-                    cls="dash-mode-card",
-                ),
-                cls="dash-modes",
+                cls="dm-wrap",
             ),
-            cls="dash-modes-section",
+            Div(
+                Button("‹", type="button", cls="dm-nav-btn", id="dm-prev", onclick="dmStep(-1)"),
+                Div(
+                    *[Div(
+                        cls=f"dm-dot{'  dm-dot--active' if i == 0 else ''}",
+                        id=f"dm-dot-{i}",
+                        onclick=f"dmGoTo({i})",
+                    ) for i in range(len(_MODES))],
+                    cls="dm-dots",
+                ),
+                Button("›", type="button", cls="dm-nav-btn", id="dm-next", onclick="dmStep(1)"),
+                cls="dm-nav",
+            ),
+            Script(f"""
+(function(){{
+  var track = document.getElementById('dm-track');
+  var total = {len(_MODES)};
+  var cur   = 0;
+  var COLS  = {[m[3] for m in _MODES]};
+
+  function upDots() {{
+    for(var i=0;i<total;i++){{
+      var d=document.getElementById('dm-dot-'+i);
+      if(!d) continue;
+      d.classList.toggle('dm-dot--active', i===cur);
+      d.style.background = i===cur ? COLS[cur] : '';
+    }}
+    document.getElementById('dm-prev').style.opacity = cur===0?'0.3':'1';
+    document.getElementById('dm-next').style.opacity = cur===total-1?'0.3':'1';
+  }}
+
+  window.dmGoTo = function(idx){{
+    cur = Math.max(0, Math.min(idx, total-1));
+    track.style.transform = 'translateX(-'+(cur*100)+'%)';
+    upDots();
+  }};
+  window.dmStep = function(d){{ window.dmGoTo(cur+d); }};
+
+  // Touch/swipe
+  var wrap=document.querySelector('.dm-wrap');
+  var tx=0,ty=0,drag=false;
+  wrap.addEventListener('touchstart',function(e){{tx=e.touches[0].clientX;ty=e.touches[0].clientY;drag=true;}},{{passive:true}});
+  wrap.addEventListener('touchmove',function(e){{
+    if(!drag)return;
+    if(Math.abs(e.touches[0].clientX-tx)>Math.abs(e.touches[0].clientY-ty))e.preventDefault();
+  }},{{passive:false}});
+  wrap.addEventListener('touchend',function(e){{
+    if(!drag)return;drag=false;
+    var dx=e.changedTouches[0].clientX-tx,dy=Math.abs(e.changedTouches[0].clientY-ty);
+    if(dy>50)return;
+    if(dx<-40)window.dmGoTo(cur+1);else if(dx>40)window.dmGoTo(cur-1);
+  }});
+
+  upDots();
+}})();
+"""),
+            cls="dm-section",
         ),
 
         # ── Top Fighters ─────────────────────────────────────────────────────

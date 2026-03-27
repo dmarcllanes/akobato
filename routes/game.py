@@ -80,7 +80,10 @@ def setup_game_routes(rt, game_state):
         # Already in an active match → send back there
         if username in game_state.player_matches:
             mid = game_state.player_matches[username]
-            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+            if game_state.matches.get(mid):
+                return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
+            # Stale entry (match was deleted) — clear and proceed normally
+            game_state.player_matches.pop(username, None)
 
         # Check tokens before allowing entry
         tokens = _fetch_tokens(username, game_state)
@@ -165,7 +168,7 @@ def setup_game_routes(rt, game_state):
     # ── Private room — create ─────────────────────────────────────────────────
 
     @rt("/room/create")
-    async def get(req: Request, category: str = "random", team_size: int = 1):
+    async def get(req: Request, category: str = "random", team_size: int = 1, room_name: str = ""):
         username = req.session.get("username")
         if not username:
             return RedirectResponse("/login", status_code=303)
@@ -187,6 +190,7 @@ def setup_game_routes(rt, game_state):
                                mode="private", team_size=team_size)
         match.alias1    = _lookup_alias(username, game_state)
         match.room_code = room_code
+        match.room_name = room_name.strip()[:32] if room_name else ""
         match.category  = category
 
         game_state.matches[match_id]        = match
@@ -202,7 +206,9 @@ def setup_game_routes(rt, game_state):
             room_wait_page(room_code, username, prompt=prompt,
                            team_size=match.team_size,
                            team1_aliases=match.team_aliases(1),
-                           team2_aliases=match.team_aliases(2)),
+                           team2_aliases=match.team_aliases(2),
+                           is_host=True,
+                           room_name=match.room_name),
             title="Private Room | Akobato",
             user=username,
             alias=_alias,
@@ -232,7 +238,9 @@ def setup_game_routes(rt, game_state):
                 room_wait_page(room_code, username, prompt=match.prompt,
                                team_size=match.team_size,
                                team1_aliases=match.team_aliases(1),
-                               team2_aliases=match.team_aliases(2)),
+                               team2_aliases=match.team_aliases(2),
+                               is_host=(match.player1 == username),
+                               room_name=match.room_name or ""),
                 title="Custom Room | Akobato",
                 user=username,
                 alias=_alias,
@@ -255,17 +263,8 @@ def setup_game_routes(rt, game_state):
             match.add_player_to_team(username, user_alias, 2)
             for p in match.all_players():
                 game_state.player_matches[p] = mid
-            # Go to wait page — WebSocket will redirect everyone into the game together
-            _alias = req.session.get("alias") or username
-            return layout(
-                room_wait_page(room_code, username, prompt=match.prompt,
-                               team_size=match.team_size,
-                               team1_aliases=match.team_aliases(1),
-                               team2_aliases=match.team_aliases(2)),
-                title="Custom Room | Akobato",
-                user=username,
-                alias=_alias,
-            )
+            # Match is now active — go straight to the arena (no extra wait page hop)
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
 
         # Team match — go to unified lobby (player picks side there)
         return RedirectResponse(f"/room/lobby/{room_code}", status_code=303)
@@ -338,15 +337,54 @@ def setup_game_routes(rt, game_state):
             hx_swap="outerHTML",
         )
 
-    # ── Private room — cancel (host leaves) ───────────────────────────────────
+    # ── Private room — cancel (host leaves, whole room destroyed) ────────────
 
     @rt("/room/cancel/{room_code}", methods=["POST"])
     def post(room_code: str, player: str = ""):
-        mid = game_state.rooms.pop(room_code, None)
-        if mid:
-            game_state.matches.pop(mid, None)
-        game_state.player_matches.pop(player, None)
+        mid   = game_state.rooms.pop(room_code, None)
+        match = game_state.matches.pop(mid, None) if mid else None
+        # Clear every player in the room (not just the host)
+        if match:
+            for p in match.all_players():
+                game_state.player_matches.pop(p, None)
+        else:
+            game_state.player_matches.pop(player, None)
         return RedirectResponse("/play", status_code=303)
+
+    # ── Private room — leave (non-host exits without destroying room) ─────────
+
+    @rt("/room/leave/{room_code}", methods=["POST"])
+    def post(room_code: str, player: str = ""):
+        mid   = game_state.rooms.get(room_code)
+        match = game_state.matches.get(mid) if mid else None
+        if match and player:
+            is_host = (match.player1 == player)
+            if is_host:
+                # Host leaving — cancel the whole room for everyone
+                game_state.rooms.pop(room_code, None)
+                game_state.matches.pop(mid, None)
+                # Clear ALL players so no one gets a stale player_matches entry
+                for p in match.all_players():
+                    game_state.player_matches.pop(p, None)
+            else:
+                # Non-host leaving — remove only this player
+                if player in match.team1:
+                    match.team1.remove(player)
+                    match._t1_aliases.pop(player, None)
+                elif player in match.team2:
+                    match.team2.remove(player)
+                    match._t2_aliases.pop(player, None)
+                # If match went active but is no longer full, reset to waiting
+                if match.status == "active" and not match.is_full():
+                    match.status     = "waiting"
+                    match.started_at = None
+                # Clean up empty room
+                if not match.all_players():
+                    game_state.rooms.pop(room_code, None)
+                    game_state.matches.pop(mid, None)
+            game_state.player_matches.pop(player, None)
+            _refund_token(player, game_state)
+        return RedirectResponse("/join-room", status_code=303)
 
     # ── Private room — join page ───────────────────────────────────────────────
 
@@ -401,17 +439,8 @@ def setup_game_routes(rt, game_state):
             match.add_player_to_team(username, user_alias, 2)
             for p in match.all_players():
                 game_state.player_matches[p] = mid
-            # Go to wait page — WebSocket syncs everyone into the game together
-            _alias = req.session.get("alias") or username
-            return layout(
-                room_wait_page(room_code, username, prompt=match.prompt,
-                               team_size=match.team_size,
-                               team1_aliases=match.team_aliases(1),
-                               team2_aliases=match.team_aliases(2)),
-                title="Custom Room | Akobato",
-                user=username,
-                alias=_alias,
-            )
+            # Match is now active — go straight to the arena (no extra wait page hop)
+            return RedirectResponse(f"/game/{mid}?player={username}", status_code=303)
 
         # Team match — go to unified lobby (player picks side there)
         return RedirectResponse(f"/room/lobby/{room_code}", status_code=303)
@@ -516,7 +545,9 @@ def setup_game_routes(rt, game_state):
                 room_wait_page(room_code, username, prompt=match.prompt,
                                team_size=match.team_size,
                                team1_aliases=match.team_aliases(1),
-                               team2_aliases=match.team_aliases(2)),
+                               team2_aliases=match.team_aliases(2),
+                               is_host=is_host,
+                               room_name=match.room_name or ""),
                 title="Custom Room | Akobato",
                 user=username,
                 alias=_alias,
@@ -531,6 +562,7 @@ def setup_game_routes(rt, game_state):
                 team2_aliases=match.team_aliases(2),
                 joined_team=joined_team,
                 is_host=is_host,
+                room_name=match.room_name or "",
             ),
             title="Custom Room | Akobato",
             user=username,
@@ -556,7 +588,9 @@ def setup_game_routes(rt, game_state):
                     room_wait_page(match.room_code, player, prompt=match.prompt,
                                    team_size=match.team_size,
                                    team1_aliases=match.team_aliases(1),
-                                   team2_aliases=match.team_aliases(2)),
+                                   team2_aliases=match.team_aliases(2),
+                                   is_host=(match.player1 == player),
+                                   room_name=match.room_name or ""),
                     title="Private Room | Akobato",
                     user=player or None,
                     alias=_alias,
@@ -889,5 +923,16 @@ def _deduct_token(username: str, game_state) -> None:
         if not db:
             return
         db.rpc("deduct_player_token", {"p_username": username}).execute()
+    except Exception:
+        pass
+
+
+def _refund_token(username: str, game_state) -> None:
+    _token_cache.delete(username)
+    try:
+        db = game_state.db
+        if not db:
+            return
+        db.rpc("restore_player_token", {"p_username": username}).execute()
     except Exception:
         pass

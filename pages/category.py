@@ -90,7 +90,7 @@ def category_page(username: str, tokens: int = 5) -> FT:
                 P("Two steps to your next battle.", cls="wz-subtitle"),
             ),
             Div(
-                Span("🪙", style="font-size:.9rem; filter:drop-shadow(0 0 5px rgba(255,194,0,.75));"),
+                Span("🪙", style="font-size:.9rem; filter:sepia(1) saturate(5) hue-rotate(-15deg) brightness(1.1) drop-shadow(0 0 5px rgba(255,194,0,.75));"),
                 Span(f"{tokens}/5", style="font-weight:900; font-size:.85rem; color:#FFC200;"),
                 Span("TOKENS", style=(
                     "font-size:.6rem; font-weight:700; letter-spacing:.1em;"
@@ -106,7 +106,7 @@ def category_page(username: str, tokens: int = 5) -> FT:
 
         # ── No energy banner ────────────────────────────────────────────────
         (Div(
-            Span("🪙", style="font-size:1.2rem;"),
+            Span("🪙", style="font-size:1.2rem; filter:sepia(1) saturate(5) hue-rotate(-15deg) brightness(1.1);"),
             Div(
                 Div("NO TOKENS", style=(
                     "font-size:.72rem; font-weight:900; letter-spacing:.12em;"

@@ -48,6 +48,7 @@ class MatchState:
         self.status:     str                     = "waiting"
         self.verdict:    Optional[JudgeVerdict]  = None
         self.started_at: Optional[float]         = None
+        self.room_name:  Optional[str]           = None
 
     # ── Backward-compat properties (1v1 callers use these) ────────────────────
 

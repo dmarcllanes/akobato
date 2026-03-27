@@ -1,12 +1,13 @@
 import hashlib
 import re
+from datetime import datetime, timezone, timedelta
 
 from fasthtml.common import *
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
 from components.layout import layout
-from pages.profile import profile_page
+from pages.profile import profile_page, match_history_fragment
 from services.avatar import generate_avatar_svg
 
 # ── Alias generator ───────────────────────────────────────────────────────────
@@ -67,6 +68,14 @@ def setup_profile_routes(rt, game_state):
             tokens=tokens,
         )
 
+    @rt("/profile/matches")
+    def get(req: Request, filter: str = "recent"):
+        username = req.session.get("username")
+        if not username:
+            return Div("Not logged in", style="color:var(--brand-muted); font-size:.82rem; padding:1rem;")
+        rows = _fetch_match_history(username, filter, game_state)
+        return match_history_fragment(rows, username, filter)
+
     @rt("/profile/update-alias", methods=["POST"])
     async def post(req: Request):
         username = req.session.get("username")
@@ -122,6 +131,50 @@ def _ensure_alias(username: str, game_state) -> str:
     except Exception:
         pass
     return alias
+
+
+def _fetch_match_history(username: str, filter_name: str, game_state) -> list:
+    try:
+        db = game_state.db
+        if not db:
+            return []
+        query = (
+            db.table("verdicts")
+            .select("match_id, prompt, player1, player2, winner, hp1_score, hp2_score, created_at")
+            .or_(f"player1.eq.{username},player2.eq.{username}")
+            .order("created_at", desc=True)
+        )
+        if filter_name == "weekly":
+            week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+            query = query.gte("created_at", week_ago).limit(50)
+        elif filter_name == "recent":
+            query = query.limit(10)
+        else:
+            query = query.limit(50)
+
+        rows = query.execute().data or []
+
+        if rows:
+            opp_names = {
+                (r["player2"] if r["player1"] == username else r["player1"])
+                for r in rows
+            }
+            alias_data = (
+                db.table("players")
+                .select("username, alias")
+                .in_("username", list(opp_names))
+                .execute()
+                .data or []
+            )
+            alias_map = {a["username"]: a["alias"] for a in alias_data if a.get("alias")}
+            for r in rows:
+                opp = r["player2"] if r["player1"] == username else r["player1"]
+                r["opp_alias"] = alias_map.get(opp, opp)
+
+        return rows
+    except Exception as e:
+        print(f"[match history] {e}")
+        return []
 
 
 def _save_alias(username: str, alias: str, game_state) -> bool:
